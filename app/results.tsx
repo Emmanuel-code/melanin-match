@@ -1,0 +1,301 @@
+import { router, useLocalSearchParams } from 'expo-router';
+import { useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import ScoreBar from '../components/ScoreBar';
+import ShadeCard from '../components/ShadeCard';
+import { MatchedShade } from '../lib/match';
+import { colors, radius } from '../lib/theme';
+import { FITZPATRICK_LABELS, isMockMode, SkinScores, tryOnShade } from '../lib/youcam';
+
+const STORES = [
+  { name: 'Jumia Ghana', detail: 'Online — delivers nationwide (jumia.com.gh)' },
+  { name: 'The Body Shop', detail: 'Accra Mall, Spintex Road' },
+  { name: 'Makola Market beauty stalls', detail: 'Ask for the shade by name or number' },
+];
+
+function parse<T>(raw: string | undefined, fallback: T): T {
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+export default function ResultsScreen() {
+  const params = useLocalSearchParams<{
+    originalUri?: string;
+    fileId?: string;
+    skinHex?: string;
+    fitzpatrick?: string;
+    scores?: string;
+    matches?: string;
+    tryOnUrl?: string;
+  }>();
+
+  const originalUri = params.originalUri ?? '';
+  const fileId = params.fileId ?? '';
+  const matches = useMemo(
+    () => parse<MatchedShade[]>(params.matches, []),
+    [params.matches],
+  );
+  const scores = useMemo(
+    () => parse<SkinScores>(params.scores, { acne: 0, oiliness: 0, moisture: 0, radiance: 0 }),
+    [params.scores],
+  );
+
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const [view, setView] = useState<'before' | 'after'>('after');
+  const [tryOnUrl, setTryOnUrl] = useState(params.tryOnUrl ?? originalUri);
+  const [tryingOn, setTryingOn] = useState(false);
+  const [showStores, setShowStores] = useState(false);
+  const mock = isMockMode();
+
+  if (!originalUri || matches.length === 0) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <View style={styles.center}>
+          <Text style={styles.title}>No results yet</Text>
+          <Text style={styles.sub}>Run the shade finder first.</Text>
+          <TouchableOpacity style={styles.cta} onPress={() => router.replace('/')}>
+            <Text style={styles.ctaText}>Start over</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const current = matches[selectedIdx];
+  const fitzLabel = FITZPATRICK_LABELS[params.fitzpatrick ?? ''] ?? params.fitzpatrick ?? '';
+
+  const selectShade = async (idx: number) => {
+    if (idx === selectedIdx || tryingOn) return;
+    setSelectedIdx(idx);
+    setTryingOn(true);
+    try {
+      const url = await tryOnShade(fileId, matches[idx].hex, originalUri);
+      setTryOnUrl(url);
+      setView('after');
+    } catch {
+      // keep the previous try-on image; the shade card still updates
+    } finally {
+      setTryingOn(false);
+    }
+  };
+
+  const shareResult = async () => {
+    const msg =
+      `My Melanin Match result: ${current.brand} ${current.line} — shade ${current.name} ` +
+      `(${current.matchPercent}% match). Fitzpatrick ${params.fitzpatrick}. ` +
+      `Foundation shades matched to YOUR skin.`;
+    try {
+      await Share.share({ message: msg });
+    } catch {
+      // user dismissed — nothing to do
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <Text style={styles.title}>Your match</Text>
+        {fitzLabel ? (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{fitzLabel}</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.hero}>
+          <ShadeCard shade={current} large />
+          <Text style={styles.best}>Best match · {current.matchPercent}%</Text>
+        </View>
+
+        {/* Alternate shades */}
+        <Text style={styles.sectionTitle}>Also close</Text>
+        <View style={styles.chips}>
+          {matches.map((m, i) => (
+            <TouchableOpacity
+              key={m.id}
+              style={[styles.chip, i === selectedIdx && styles.chipSelected]}
+              activeOpacity={0.8}
+              onPress={() => selectShade(i)}
+            >
+              <View style={[styles.chipSwatch, { backgroundColor: m.hex }]} />
+              <Text style={styles.chipText}>
+                {m.brand} {m.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Before / after */}
+        <Text style={styles.sectionTitle}>See it on you</Text>
+        <View style={styles.toggle}>
+          {(['before', 'after'] as const).map((v) => (
+            <TouchableOpacity
+              key={v}
+              style={[styles.toggleBtn, view === v && styles.toggleBtnActive]}
+              activeOpacity={0.8}
+              onPress={() => setView(v)}
+            >
+              <Text style={[styles.toggleText, view === v && styles.toggleTextActive]}>
+                {v === 'before' ? 'Before' : 'Try-on'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <View style={styles.photoWrap}>
+          <Image
+            source={{ uri: view === 'before' ? originalUri : tryOnUrl }}
+            style={styles.photo}
+          />
+          {tryingOn ? (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color={colors.gold} />
+            </View>
+          ) : null}
+        </View>
+        {mock ? (
+          <Text style={styles.mockNote}>
+            Demo mode — with a YouCam API key this shows the real virtual try-on.
+          </Text>
+        ) : null}
+
+        {/* Skin scores */}
+        <Text style={styles.sectionTitle}>Your skin, by the numbers</Text>
+        <View style={styles.card}>
+          <ScoreBar label="Radiance" value={scores.radiance} />
+          <ScoreBar label="Moisture" value={scores.moisture} />
+          <ScoreBar
+            label="Clarity"
+            value={scores.acne}
+            hint="Higher means fewer visible blemishes."
+          />
+          <ScoreBar
+            label="Oil balance"
+            value={100 - scores.oiliness}
+            hint="How balanced your skin's oil is."
+          />
+          <Text style={styles.fine}>Estimates from AI analysis, not medical advice.</Text>
+        </View>
+
+        {/* Stores */}
+        <TouchableOpacity
+          style={styles.cta}
+          activeOpacity={0.85}
+          onPress={() => setShowStores((s) => !s)}
+        >
+          <Text style={styles.ctaText}>{showStores ? 'Hide stores' : 'Find a store'}</Text>
+        </TouchableOpacity>
+        {showStores ? (
+          <View style={styles.card}>
+            {STORES.map((s) => (
+              <View key={s.name} style={styles.store}>
+                <Text style={styles.storeName}>{s.name}</Text>
+                <Text style={styles.storeDetail}>{s.detail}</Text>
+              </View>
+            ))}
+            <Text style={styles.fine}>Demo data — real store info coming soon.</Text>
+          </View>
+        ) : null}
+
+        <TouchableOpacity
+          style={[styles.cta, styles.ctaGhost]}
+          activeOpacity={0.85}
+          onPress={shareResult}
+        >
+          <Text style={styles.ctaGhostText}>Share my result</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.linkBtn}
+          activeOpacity={0.8}
+          onPress={() => router.replace('/')}
+        >
+          <Text style={styles.linkText}>← Start over</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.background },
+  scroll: { padding: 24, paddingTop: 32, paddingBottom: 48 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  title: { color: colors.cream, fontSize: 32, fontWeight: '800' },
+  sub: { color: colors.muted, fontSize: 15, marginTop: 8 },
+  badge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.surfaceLight,
+    borderRadius: radius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginTop: 12,
+  },
+  badgeText: { color: colors.goldSoft, fontSize: 13, fontWeight: '700' },
+  hero: { marginTop: 20 },
+  best: { color: colors.goldSoft, fontSize: 14, fontWeight: '700', marginTop: 10 },
+  sectionTitle: {
+    color: colors.cream,
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 28,
+    marginBottom: 12,
+  },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  chipSelected: { borderColor: colors.gold },
+  chipSwatch: { width: 22, height: 22, borderRadius: 11, marginRight: 8 },
+  chipText: { color: colors.cream, fontSize: 13, fontWeight: '600' },
+  toggle: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.md, padding: 4 },
+  toggleBtn: { flex: 1, paddingVertical: 10, borderRadius: radius.sm, alignItems: 'center' },
+  toggleBtnActive: { backgroundColor: colors.gold },
+  toggleText: { color: colors.muted, fontSize: 15, fontWeight: '700' },
+  toggleTextActive: { color: '#1a120b' },
+  photoWrap: { marginTop: 12, borderRadius: radius.lg, overflow: 'hidden' },
+  photo: { width: '100%', aspectRatio: 3 / 4, backgroundColor: colors.surface },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(26,18,11,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mockNote: { color: colors.muted, fontSize: 12, marginTop: 8, fontStyle: 'italic' },
+  card: { backgroundColor: colors.surface, borderRadius: radius.md, padding: 16 },
+  fine: { color: colors.goldDim, fontSize: 11, marginTop: 10 },
+  cta: {
+    backgroundColor: colors.gold,
+    borderRadius: radius.md,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  ctaText: { color: '#1a120b', fontSize: 16, fontWeight: '800' },
+  ctaGhost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.goldDim },
+  ctaGhostText: { color: colors.goldSoft, fontSize: 16, fontWeight: '700' },
+  store: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.surfaceLight },
+  storeName: { color: colors.cream, fontSize: 15, fontWeight: '700' },
+  storeDetail: { color: colors.muted, fontSize: 13, marginTop: 2 },
+  linkBtn: { alignItems: 'center', marginTop: 20, paddingVertical: 8 },
+  linkText: { color: colors.goldSoft, fontSize: 15, fontWeight: '600' },
+});

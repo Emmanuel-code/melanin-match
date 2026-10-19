@@ -43,3 +43,65 @@ export function findNearestShades(skinHex: string, n = 3): MatchedShade[] {
     .sort((a, b) => a.distance - b.distance)
     .slice(0, n);
 }
+
+// --- Undertone --------------------------------------------------------------
+
+export type Undertone = 'warm' | 'neutral' | 'cool';
+
+export interface UndertoneResult {
+  undertone: Undertone;
+  /** 0–100 confidence */
+  confidence: number;
+  label: string;
+  /** one-liner the UI can show */
+  tip: string;
+}
+
+// Depth gets you close; undertone is why a shade looks ashy or glowing.
+// Warm skin carries more red/yellow relative to blue; cool skin is pinker.
+export function analyzeUndertone(skinHex: string): UndertoneResult {
+  const [r, , b] = hexToRgb(skinHex);
+  const warmth = (r - b) / Math.max(r, 1); // ~0..1 for skin tones
+  if (warmth > 0.38) {
+    return {
+      undertone: 'warm',
+      confidence: Math.min(99, Math.round(55 + (warmth - 0.38) * 160)),
+      label: 'Warm',
+      tip: 'Golden / yellow base — look for shades labeled W, Warm, or Golden.',
+    };
+  }
+  if (warmth < 0.2) {
+    return {
+      undertone: 'cool',
+      confidence: Math.min(99, Math.round(55 + (0.2 - warmth) * 160)),
+      label: 'Cool',
+      tip: 'Pink / rosy base — look for shades labeled C, Cool, or Rosy.',
+    };
+  }
+  return {
+    undertone: 'neutral',
+    confidence: 72,
+    label: 'Neutral',
+    tip: 'Balanced base — neutral (N) shades are your safest bet.',
+  };
+}
+
+// --- Explainability ---------------------------------------------------------
+
+export interface MatchExplanation {
+  /** 0–100: how close the shade's depth is */
+  depthScore: number;
+  /** true when undertones agree (neutral flatters everyone) */
+  undertoneAligned: boolean;
+  /** e.g. "Warm ↔ Warm" */
+  undertonePair: string;
+}
+
+export function explainMatch(skinHex: string, shade: Shade): MatchExplanation {
+  const depthScore = toPercent(colorDistance(skinHex, shade.hex));
+  const skin = analyzeUndertone(skinHex).undertone;
+  const shadeTone = analyzeUndertone(shade.hex).undertone;
+  const aligned = skin === shadeTone || skin === 'neutral' || shadeTone === 'neutral';
+  const cap = (u: Undertone) => u[0].toUpperCase() + u.slice(1);
+  return { depthScore, undertoneAligned: aligned, undertonePair: `${cap(skin)} ↔ ${cap(shadeTone)}` };
+}

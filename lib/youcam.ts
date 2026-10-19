@@ -260,6 +260,7 @@ export type PipelineStep = 'upload' | 'skinTone' | 'skinAnalysis' | 'match' | 't
 export interface PipelineResult {
   fileId: string;
   skinColorHex: string;
+  faceQuality: number;
   fitzpatrick: string;
   scores: SkinScores;
   matches: MatchedShade[];
@@ -289,7 +290,7 @@ export async function runPipeline(
   const fileId = await uploadPhoto(imageUri);
 
   onStep('skinTone');
-  const [{ skinColorHex }, fitzpatrick] = await Promise.all([
+  const [{ skinColorHex, faceQuality }, fitzpatrick] = await Promise.all([
     analyzeSkinTone(fileId),
     analyzeFitzpatrick(fileId),
   ]);
@@ -303,7 +304,7 @@ export async function runPipeline(
   onStep('tryOn');
   const tryOnUrl = await tryOnFoundation(fileId, matches[0].hex, imageUri);
 
-  return { fileId, skinColorHex, fitzpatrick, scores, matches, tryOnUrl };
+  return { fileId, skinColorHex, faceQuality, fitzpatrick, scores, matches, tryOnUrl };
 }
 
 // Re-run try-on with an alternate shade (fileId from the completed pipeline).

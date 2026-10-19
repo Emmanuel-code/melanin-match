@@ -42,6 +42,7 @@ export default function AnalyzingScreen() {
             originalUri: uri,
             fileId: result.fileId,
             skinHex: result.skinColorHex,
+            faceQuality: String(result.faceQuality),
             fitzpatrick: result.fitzpatrick,
             scores: JSON.stringify(result.scores),
             matches: JSON.stringify(result.matches),

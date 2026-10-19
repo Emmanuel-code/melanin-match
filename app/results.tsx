@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ScoreBar from '../components/ScoreBar';
 import ShadeCard from '../components/ShadeCard';
-import { MatchedShade } from '../lib/match';
+import { analyzeUndertone, explainMatch, MatchedShade } from '../lib/match';
 import { colors, radius } from '../lib/theme';
 import { FITZPATRICK_LABELS, isMockMode, SkinScores, tryOnShade } from '../lib/youcam';
 
@@ -37,6 +37,7 @@ export default function ResultsScreen() {
     originalUri?: string;
     fileId?: string;
     skinHex?: string;
+    faceQuality?: string;
     fitzpatrick?: string;
     scores?: string;
     matches?: string;
@@ -77,6 +78,16 @@ export default function ResultsScreen() {
 
   const current = matches[selectedIdx];
   const fitzLabel = FITZPATRICK_LABELS[params.fitzpatrick ?? ''] ?? params.fitzpatrick ?? '';
+  const skinHex = params.skinHex ?? '';
+  const faceQuality = Number(params.faceQuality ?? '100');
+  const undertone = useMemo(
+    () => (skinHex ? analyzeUndertone(skinHex) : null),
+    [skinHex],
+  );
+  const explanation = useMemo(
+    () => (skinHex ? explainMatch(skinHex, current) : null),
+    [skinHex, current],
+  );
 
   const selectShade = async (idx: number) => {
     if (idx === selectedIdx || tryingOn) return;
@@ -109,9 +120,26 @@ export default function ResultsScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Your match</Text>
-        {fitzLabel ? (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{fitzLabel}</Text>
+        <View style={styles.badgeRow}>
+          {fitzLabel ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{fitzLabel}</Text>
+            </View>
+          ) : null}
+          {undertone ? (
+            <View style={[styles.badge, styles.badgeGold]}>
+              <Text style={styles.badgeText}>{undertone.label} undertone</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {!mock && faceQuality < 60 ? (
+          <View style={styles.warnCard}>
+            <Text style={styles.warnTitle}>Lighting wasn't ideal</Text>
+            <Text style={styles.warnText}>
+              The photo quality scored {faceQuality}/100 — your match may be off. Retake facing a
+              window, no flash, for a sharper result.
+            </Text>
           </View>
         ) : null}
 
@@ -119,6 +147,26 @@ export default function ResultsScreen() {
           <ShadeCard shade={current} large />
           <Text style={styles.best}>Best match · {current.matchPercent}%</Text>
         </View>
+
+        {explanation && undertone ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Why this match</Text>
+            <View style={styles.whyRow}>
+              <Text style={styles.whyLabel}>Depth</Text>
+              <View style={styles.whyBar}>
+                <View style={[styles.whyFill, { width: `${explanation.depthScore}%` }]} />
+              </View>
+              <Text style={styles.whyValue}>{explanation.depthScore}%</Text>
+            </View>
+            <View style={styles.whyRow}>
+              <Text style={styles.whyLabel}>Undertone</Text>
+              <Text style={styles.whyValue}>
+                {explanation.undertoneAligned ? '✓' : '≈'} {explanation.undertonePair}
+              </Text>
+            </View>
+            <Text style={styles.fine}>{undertone.tip}</Text>
+          </View>
+        ) : null}
 
         {/* Alternate shades */}
         <Text style={styles.sectionTitle}>Also close</Text>
@@ -235,15 +283,25 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   title: { color: colors.cream, fontSize: 32, fontWeight: '800' },
   sub: { color: colors.muted, fontSize: 15, marginTop: 8 },
+  badgeRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
   badge: {
-    alignSelf: 'flex-start',
     backgroundColor: colors.surfaceLight,
     borderRadius: radius.sm,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    marginTop: 12,
   },
+  badgeGold: { backgroundColor: '#3a2c14' },
   badgeText: { color: colors.goldSoft, fontSize: 13, fontWeight: '700' },
+  warnCard: {
+    backgroundColor: '#3a2413',
+    borderRadius: radius.md,
+    padding: 14,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#7a5a2a',
+  },
+  warnTitle: { color: '#f0c46c', fontSize: 14, fontWeight: '800' },
+  warnText: { color: colors.cream, fontSize: 13, lineHeight: 19, marginTop: 4 },
   hero: { marginTop: 20 },
   best: { color: colors.goldSoft, fontSize: 14, fontWeight: '700', marginTop: 10 },
   sectionTitle: {
@@ -282,6 +340,19 @@ const styles = StyleSheet.create({
   },
   mockNote: { color: colors.muted, fontSize: 12, marginTop: 8, fontStyle: 'italic' },
   card: { backgroundColor: colors.surface, borderRadius: radius.md, padding: 16 },
+  cardTitle: { color: colors.cream, fontSize: 16, fontWeight: '800', marginBottom: 12 },
+  whyRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  whyLabel: { color: colors.muted, fontSize: 13, fontWeight: '600', width: 76 },
+  whyBar: {
+    flex: 1,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.surfaceLight,
+    overflow: 'hidden',
+    marginRight: 10,
+  },
+  whyFill: { height: '100%', backgroundColor: colors.gold, borderRadius: 4 },
+  whyValue: { color: colors.cream, fontSize: 13, fontWeight: '700' },
   fine: { color: colors.goldDim, fontSize: 11, marginTop: 10 },
   cta: {
     backgroundColor: colors.gold,

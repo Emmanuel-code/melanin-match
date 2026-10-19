@@ -38,4 +38,18 @@ export const SHADES: Shade[] = [
   { id: 'may-340', brand: 'Maybelline', line: 'Fit Me Matte + Poreless', name: '340 Cappuccino', hex: '#5b3a22' },
   { id: 'may-355', brand: 'Maybelline', line: 'Fit Me Matte + Poreless', name: '355 Coconut', hex: '#4a2f1d' },
   { id: 'may-360', brand: 'Maybelline', line: 'Fit Me Matte + Poreless', name: '360 Mocha', hex: '#3d2818' },
+  // Black Opal — True Color Skin Perfecting Stick (formulated for Black skin)
+  { id: 'bo-hazelnut', brand: 'Black Opal', line: 'True Color Stick', name: 'Hazelnut', hex: '#8a5a34' },
+  { id: 'bo-nutmeg', brand: 'Black Opal', line: 'True Color Stick', name: 'Nutmeg', hex: '#7a4e2c' },
+  { id: 'bo-truly-topaz', brand: 'Black Opal', line: 'True Color Stick', name: 'Truly Topaz', hex: '#6a4226' },
+  { id: 'bo-black-walnut', brand: 'Black Opal', line: 'True Color Stick', name: 'Black Walnut', hex: '#54341e' },
+  { id: 'bo-ebony', brand: 'Black Opal', line: 'True Color Stick', name: 'Ebony Brown', hex: '#3f2817' },
+  // NARS — Natural Radiant Longwear
+  { id: 'nars-macao', brand: 'NARS', line: 'Natural Radiant Longwear', name: 'Macao', hex: '#7c4f2e' },
+  { id: 'nars-mali', brand: 'NARS', line: 'Natural Radiant Longwear', name: 'Mali', hex: '#5e3a22' },
+  { id: 'nars-benares', brand: 'NARS', line: 'Natural Radiant Longwear', name: 'Benares', hex: '#4a2e1c' },
+  // Lancôme — Teint Idole Ultra Wear
+  { id: 'lan-540', brand: 'Lancôme', line: 'Teint Idole Ultra Wear', name: '540 Suede N', hex: '#6e4527' },
+  { id: 'lan-550', brand: 'Lancôme', line: 'Teint Idole Ultra Wear', name: '550 Suede C', hex: '#5c3820' },
+  { id: 'lan-560', brand: 'Lancôme', line: 'Teint Idole Ultra Wear', name: '560 Suede W', hex: '#4c2d19' },
 ];

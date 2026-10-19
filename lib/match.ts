@@ -36,9 +36,17 @@ function toPercent(distance: number): number {
 // --- Matching ---------------------------------------------------------------
 
 export function findNearestShades(skinHex: string, n = 3): MatchedShade[] {
+  const skinTone = analyzeUndertone(skinHex).undertone;
   return SHADES.map((shade) => {
     const distance = colorDistance(skinHex, shade.hex);
-    return { ...shade, distance, matchPercent: toPercent(distance) };
+    const shadeTone = analyzeUndertone(shade.hex).undertone;
+    // Undertone agreement earns a ranking bonus: a shade that flatters your
+    // undertone outranks a marginally closer depth that would look ashy.
+    // Neutral flatters everyone, so it always counts as aligned.
+    const aligned =
+      skinTone === shadeTone || skinTone === 'neutral' || shadeTone === 'neutral';
+    const ranked = aligned ? distance * 0.92 : distance;
+    return { ...shade, distance: ranked, matchPercent: toPercent(ranked) };
   })
     .sort((a, b) => a.distance - b.distance)
     .slice(0, n);

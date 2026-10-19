@@ -148,6 +148,16 @@ export default function ResultsScreen() {
           <Text style={styles.best}>Best match · {current.matchPercent}%</Text>
         </View>
 
+        {matches[0].matchPercent < 75 ? (
+          <View style={styles.warnCard}>
+            <Text style={styles.warnTitle}>No perfect match in our catalog</Text>
+            <Text style={styles.warnText}>
+              Our 37 shades didn't nail it this time — these are the closest we
+              found. We're adding brands every week; check back soon.
+            </Text>
+          </View>
+        ) : null}
+
         {explanation && undertone ? (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Why this match</Text>

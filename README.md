@@ -5,9 +5,11 @@ industry ignores. Entry for the **YouCam API Skin AI & eCommerce VTO Hackathon**
 (deadline Mon Nov 2, 2026, 4:45pm Accra).
 
 Snap a selfie → YouCam AI reads your exact skin tone (plus a Fitzpatrick type and
-skin scores for radiance, moisture, clarity, oil balance) → we match you to the
-closest foundation shades from a catalog weighted toward deep/dark tones → you
-see the shade on your own face with virtual try-on.
+skin scores for radiance, moisture, clarity, oil balance) → we detect your
+undertone (warm / neutral / cool) → match you to the closest foundation shades
+from a 37-shade catalog weighted toward deep/dark tones → you see the shade on
+your own face with virtual try-on → the app shows its working in a "Why this
+match" card.
 
 ## Setup
 
@@ -52,7 +54,8 @@ app/
   index.tsx        # Home — pitch, 3 steps, CTA
   capture.tsx      # Photo capture (camera + gallery) with guidance checklist
   analyzing.tsx    # Pipeline runner with visible step list
-  results.tsx      # Match hero, Fitzpatrick badge, score bars,
+  results.tsx      # Match hero, Fitzpatrick + undertone badges, "Why this match"
+                   # explainability card, face-quality retake warning,
                    # before/after try-on toggle, alternate shades,
                    # store finder (demo data), share
 components/
@@ -63,9 +66,11 @@ lib/
   youcam.ts        # YouCam S2S client: upload → task/poll → analyses → VTO.
                    # Handles both makeup-vto result shapes (results.url and
                    # results[].download_url). Mock mode when no API key.
-  shades.ts        # Curated foundation catalog (Fenty, MAC, Maybelline),
-                   # weighted toward deep tones
-  match.ts         # hexToRgb, weighted-RGB color distance, findNearestShades
+  shades.ts        # Curated foundation catalog: Fenty, MAC, Maybelline,
+                   # Black Opal, NARS, Lancôme — 37 shades, weighted toward
+                   # deep tones
+  match.ts         # hexToRgb, weighted-RGB color distance, undertone analysis,
+                   # undertone-weighted ranking, match explanations
   theme.ts         # Design tokens (espresso + gold)
 ```
 
@@ -78,10 +83,15 @@ lib/
 3. `analyzeFitzpatrick` — Fitzpatrick scale I–VI.
 4. `analyzeSkin` — `ui_score` (1–100) for acne, oiliness, moisture, radiance.
    SD actions only, never mixed with HD.
-5. `findNearestShades` — weighted-RGB distance ranks the catalog, top 3.
+5. `findNearestShades` — weighted-RGB distance ranks the catalog, then undertone
+   agreement earns a ranking bonus: a shade that flatters your undertone
+   outranks a marginally closer depth that would look ashy. Top 3.
 6. `tryOnFoundation` — `makeup-vto` with `skin_smooth` at **zero strength** so
    the render shows the actual shade, not a beautified blur. The skin_smooth
    entry with 0 strength is required for honest shade rendering.
+7. Honesty gates — if `face_quality` < 60 the results screen warns you to
+   retake in better light instead of selling a bad match; if the best match
+   scores < 75% it says so instead of pretending.
 
 ## Hackathon submission checklist
 

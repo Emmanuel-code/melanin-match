@@ -7,7 +7,7 @@ industry ignores. Entry for the **YouCam API Skin AI & eCommerce VTO Hackathon**
 Snap a selfie → YouCam AI reads your exact skin tone (plus a Fitzpatrick type and
 skin scores for radiance, moisture, clarity, oil balance) → we detect your
 undertone (warm / neutral / cool) → match you to the closest foundation shades
-from a 37-shade catalog weighted toward deep/dark tones → you see the shade on
+from a 68-shade catalog weighted toward deep/dark tones → you see the shade on
 your own face with virtual try-on → the app shows its working in a "Why this
 match" card.
 
@@ -68,10 +68,11 @@ lib/
                    # Handles both makeup-vto result shapes (results.url and
                    # results[].download_url). Mock mode when no API key.
   shades.ts        # Curated foundation catalog: Fenty, MAC, Maybelline,
-                   # Black Opal, NARS, Lancôme — 37 shades, weighted toward
-                   # deep tones
-  match.ts         # hexToRgb, weighted-RGB color distance, undertone analysis,
-                   # undertone-weighted ranking, match explanations
+                   # Black Opal, NARS, Lancôme, L'Oréal, Estée Lauder,
+                   # Rare Beauty — 68 shades, weighted toward deep tones
+  match.ts         # CIELAB (hexToLab) delta E distance, hue-angle undertone
+                   # analysis, undertone-weighted ranking, concealer finder,
+                   # match explanations
   pairings.ts      # Lip shades that flatter each undertone
   session.ts       # Session-scoped state (onboarding seen flag)
   theme.ts         # Design tokens (espresso + gold)
@@ -86,9 +87,11 @@ lib/
 3. `analyzeFitzpatrick` — Fitzpatrick scale I–VI.
 4. `analyzeSkin` — `ui_score` (1–100) for acne, oiliness, moisture, radiance.
    SD actions only, never mixed with HD.
-5. `findNearestShades` — weighted-RGB distance ranks the catalog, then undertone
-   agreement earns a ranking bonus: a shade that flatters your undertone
-   outranks a marginally closer depth that would look ashy. Top 3.
+5. `findNearestShades` — CIELAB ΔE ranks the catalog, then undertone agreement
+   earns a ranking bonus: a shade that flatters your undertone outranks a
+   marginally closer depth that would look ashy. Top 3. Undertone itself comes
+   from the CIELAB hue angle (≥45° warm, ≤32° cool), and `findConcealerShade`
+   applies the makeup-artist rule (same family, L* +5 to +16 lighter).
 6. `tryOnFoundation` — `makeup-vto` with `skin_smooth` at **zero strength** so
    the render shows the actual shade, not a beautified blur. The skin_smooth
    entry with 0 strength is required for honest shade rendering.

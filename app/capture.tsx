@@ -67,6 +67,11 @@ export default function CaptureScreen() {
           ))}
         </View>
 
+        <Text style={styles.privacy}>
+          Privacy: your photo is analyzed by YouCam's AI to read your skin tone. We never store
+          your photo.
+        </Text>
+
         {photoUri ? (
           <View>
             <Image source={{ uri: photoUri }} style={styles.preview} />
@@ -124,6 +129,7 @@ const styles = StyleSheet.create({
   checkRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
   check: { color: colors.gold, fontSize: 16, fontWeight: '700', marginRight: 10 },
   checkText: { color: colors.cream, fontSize: 14 },
+  privacy: { color: colors.goldDim, fontSize: 12, lineHeight: 17, marginTop: 14 },
   preview: {
     width: '100%',
     aspectRatio: 3 / 4,

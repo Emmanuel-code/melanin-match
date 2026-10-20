@@ -52,4 +52,42 @@ export const SHADES: Shade[] = [
   { id: 'lan-540', brand: 'Lancôme', line: 'Teint Idole Ultra Wear', name: '540 Suede N', hex: '#6e4527' },
   { id: 'lan-550', brand: 'Lancôme', line: 'Teint Idole Ultra Wear', name: '550 Suede C', hex: '#5c3820' },
   { id: 'lan-560', brand: 'Lancôme', line: 'Teint Idole Ultra Wear', name: '560 Suede W', hex: '#4c2d19' },
+  // Fenty Beauty — extended deep range (Pro Filt'r runs to 498)
+  { id: 'fenty-290', brand: 'Fenty Beauty', line: "Pro Filt'r Soft Matte", name: '290', hex: '#b57a4e' },
+  { id: 'fenty-320', brand: 'Fenty Beauty', line: "Pro Filt'r Soft Matte", name: '320', hex: '#96603c' },
+  { id: 'fenty-345', brand: 'Fenty Beauty', line: "Pro Filt'r Soft Matte", name: '345', hex: '#7a4a2c' },
+  { id: 'fenty-385', brand: 'Fenty Beauty', line: "Pro Filt'r Soft Matte", name: '385', hex: '#4a2e1e' },
+  { id: 'fenty-395', brand: 'Fenty Beauty', line: "Pro Filt'r Soft Matte", name: '395', hex: '#422818' },
+  { id: 'fenty-430', brand: 'Fenty Beauty', line: "Pro Filt'r Soft Matte", name: '430', hex: '#26180f' },
+  { id: 'fenty-440', brand: 'Fenty Beauty', line: "Pro Filt'r Soft Matte", name: '440', hex: '#221610' },
+  { id: 'fenty-445', brand: 'Fenty Beauty', line: "Pro Filt'r Soft Matte", name: '445', hex: '#1f130d' },
+  { id: 'fenty-450', brand: 'Fenty Beauty', line: "Pro Filt'r Soft Matte", name: '450', hex: '#1c110b' },
+  { id: 'fenty-460', brand: 'Fenty Beauty', line: "Pro Filt'r Soft Matte", name: '460', hex: '#190e08' },
+  { id: 'fenty-470', brand: 'Fenty Beauty', line: "Pro Filt'r Soft Matte", name: '470', hex: '#160c07' },
+  { id: 'fenty-480', brand: 'Fenty Beauty', line: "Pro Filt'r Soft Matte", name: '480', hex: '#130a06' },
+  { id: 'fenty-490', brand: 'Fenty Beauty', line: "Pro Filt'r Soft Matte", name: '490', hex: '#100805' },
+  { id: 'fenty-495', brand: 'Fenty Beauty', line: "Pro Filt'r Soft Matte", name: '495', hex: '#0e0603' },
+  { id: 'fenty-498', brand: 'Fenty Beauty', line: "Pro Filt'r Soft Matte", name: '498', hex: '#0b0503' },
+  // MAC — Studio Fix Fluid, warm (NC) and deeper (NW)
+  { id: 'mac-nc45', brand: 'MAC', line: 'Studio Fix Fluid', name: 'NC45', hex: '#96633c' },
+  { id: 'mac-nc50', brand: 'MAC', line: 'Studio Fix Fluid', name: 'NC50', hex: '#7c5133' },
+  { id: 'mac-nc55', brand: 'MAC', line: 'Studio Fix Fluid', name: 'NC55', hex: '#634026' },
+  { id: 'mac-nc60', brand: 'MAC', line: 'Studio Fix Fluid', name: 'NC60', hex: '#4e3320' },
+  { id: 'mac-nw60', brand: 'MAC', line: 'Studio Fix Fluid', name: 'NW60', hex: '#37251a' },
+  // Maybelline — one more
+  { id: 'may-356', brand: 'Maybelline', line: 'Fit Me Matte + Poreless', name: '356 Warm Coconut', hex: '#503322' },
+  // L'Oréal Paris — True Match
+  { id: 'lor-w9', brand: "L'Oréal Paris", line: 'True Match', name: 'W9 Deep Warm', hex: '#54331e' },
+  { id: 'lor-n8', brand: "L'Oréal Paris", line: 'True Match', name: 'N8 Deep Neutral', hex: '#4e2e1c' },
+  { id: 'lor-c9', brand: "L'Oréal Paris", line: 'True Match', name: 'C9 Deep Cool', hex: '#452a20' },
+  // Estée Lauder — Double Wear
+  { id: 'el-6n1', brand: 'Estée Lauder', line: 'Double Wear', name: '6N1 Truffle', hex: '#5a3a24' },
+  { id: 'el-6c1', brand: 'Estée Lauder', line: 'Double Wear', name: '6C1 Rich Chestnut', hex: '#513420' },
+  { id: 'el-7n1', brand: 'Estée Lauder', line: 'Double Wear', name: '7N1 Deep Amber', hex: '#452b18' },
+  { id: 'el-8n1', brand: 'Estée Lauder', line: 'Double Wear', name: '8N1 Espresso', hex: '#38220f' },
+  // Rare Beauty — Liquid Touch Weightless
+  { id: 'rb-480w', brand: 'Rare Beauty', line: 'Liquid Touch', name: '480W', hex: '#7a4c2a' },
+  { id: 'rb-510w', brand: 'Rare Beauty', line: 'Liquid Touch', name: '510W', hex: '#5f3a20' },
+  { id: 'rb-540n', brand: 'Rare Beauty', line: 'Liquid Touch', name: '540N', hex: '#452a18' },
+  { id: 'rb-570n', brand: 'Rare Beauty', line: 'Liquid Touch', name: '570N', hex: '#33200f' },
 ];

@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Linking,
   ScrollView,
   Share,
   StyleSheet,
@@ -13,8 +14,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ScoreBar from '../components/ScoreBar';
 import ShadeCard from '../components/ShadeCard';
-import { analyzeUndertone, explainMatch, MatchedShade } from '../lib/match';
+import { analyzeUndertone, explainMatch, findConcealerShade, MatchedShade } from '../lib/match';
 import { lipPairingsFor } from '../lib/pairings';
+import { SHADES } from '../lib/shades';
+import { recordMatchFeedback } from '../lib/session';
 import { colors, radius } from '../lib/theme';
 import { FITZPATRICK_LABELS, isMockMode, SkinScores, tryOnShade } from '../lib/youcam';
 
@@ -89,6 +92,25 @@ export default function ResultsScreen() {
     () => (skinHex ? explainMatch(skinHex, current) : null),
     [skinHex, current],
   );
+  const concealer = useMemo(
+    () => (skinHex ? findConcealerShade(skinHex) : null),
+    [skinHex],
+  );
+  const [feedback, setFeedback] = useState<'yes' | 'no' | null>(null);
+
+  const giveFeedback = (good: boolean) => {
+    recordMatchFeedback(good);
+    setFeedback(good ? 'yes' : 'no');
+  };
+
+  const searchShade = (engine: 'jumia' | 'google') => {
+    const q = encodeURIComponent(`${current.brand} ${current.line} foundation shade ${current.name}`);
+    const url =
+      engine === 'jumia'
+        ? `https://www.jumia.com.gh/catalog/?q=${q}`
+        : `https://www.google.com/search?q=${q}+buy`;
+    Linking.openURL(url).catch(() => {});
+  };
 
   const selectShade = async (idx: number) => {
     if (idx === selectedIdx || tryingOn) return;
@@ -153,7 +175,7 @@ export default function ResultsScreen() {
           <View style={styles.warnCard}>
             <Text style={styles.warnTitle}>No perfect match in our catalog</Text>
             <Text style={styles.warnText}>
-              Our 37 shades didn't nail it this time — these are the closest we
+              Our {SHADES.length} shades didn't nail it this time — these are the closest we
               found. We're adding brands every week; check back soon.
             </Text>
           </View>
@@ -173,9 +195,32 @@ export default function ResultsScreen() {
               <Text style={styles.whyLabel}>Undertone</Text>
               <Text style={styles.whyValue}>
                 {explanation.undertoneAligned ? '✓' : '≈'} {explanation.undertonePair}
+                {undertone ? ` · hue ${undertone.hueAngle}°` : ''}
               </Text>
             </View>
             <Text style={styles.fine}>{undertone.tip}</Text>
+            <Text style={styles.fine}>
+              Match score blends CIELAB depth closeness (ΔE) with undertone alignment — the same
+              color space the cosmetics labs use.
+            </Text>
+          </View>
+        ) : null}
+
+        {concealer ? (
+          <View style={[styles.card, styles.cardSpaced]}>
+            <Text style={styles.cardTitle}>Complete the base</Text>
+            <View style={styles.lipRow}>
+              <View style={[styles.lipSwatch, { backgroundColor: concealer.hex }]} />
+              <View style={styles.lipText}>
+                <Text style={styles.lipName}>
+                  Concealer: {concealer.brand} {concealer.name}
+                </Text>
+                <Text style={styles.lipNote}>
+                  Makeup-artist rule: same family, a few steps lighter to brighten — this is the
+                  closest in our catalog.
+                </Text>
+              </View>
+            </View>
           </View>
         ) : null}
 
@@ -229,6 +274,41 @@ export default function ResultsScreen() {
             Demo mode — with a YouCam API key this shows the real virtual try-on.
           </Text>
         ) : null}
+        <Text style={styles.mockNote}>
+          Blend check: when you buy it, stripe the shade at your jawline — the right one
+          disappears into your neck.
+        </Text>
+
+        {/* Match feedback — the start of our validation loop */}
+        <View style={[styles.card, styles.cardSpaced]}>
+          {feedback === null ? (
+            <>
+              <Text style={styles.cardTitle}>Was this your shade?</Text>
+              <View style={styles.feedbackRow}>
+                <TouchableOpacity
+                  style={[styles.feedbackBtn, styles.feedbackYes]}
+                  activeOpacity={0.85}
+                  onPress={() => giveFeedback(true)}
+                >
+                  <Text style={styles.feedbackYesText}>Yes, that’s me</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.feedbackBtn, styles.feedbackNo]}
+                  activeOpacity={0.85}
+                  onPress={() => giveFeedback(false)}
+                >
+                  <Text style={styles.feedbackNoText}>Not quite</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <Text style={styles.feedbackThanks}>
+              {feedback === 'yes'
+                ? 'Love it. That confirmation makes the next match smarter.'
+                : 'Noted — honest misses are how this gets better. Try an alternate shade above.'}
+            </Text>
+          )}
+        </View>
 
         {/* Skin scores */}
         <Text style={styles.sectionTitle}>Your skin, by the numbers</Text>
@@ -282,13 +362,23 @@ export default function ResultsScreen() {
         </TouchableOpacity>
         {showStores ? (
           <View style={styles.card}>
-            {STORES.map((s) => (
+            <TouchableOpacity style={styles.store} onPress={() => searchShade('jumia')}>
+              <Text style={styles.storeName}>Search this shade on Jumia Ghana →</Text>
+              <Text style={styles.storeDetail}>
+                {current.brand} {current.line} — shade {current.name}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.store} onPress={() => searchShade('google')}>
+              <Text style={styles.storeName}>Search this shade on Google →</Text>
+              <Text style={styles.storeDetail}>Compare prices across sellers</Text>
+            </TouchableOpacity>
+            {STORES.slice(1).map((s) => (
               <View key={s.name} style={styles.store}>
                 <Text style={styles.storeName}>{s.name}</Text>
                 <Text style={styles.storeDetail}>{s.detail}</Text>
               </View>
             ))}
-            <Text style={styles.fine}>Demo data — real store info coming soon.</Text>
+            <Text style={styles.fine}>Store locations are demo data.</Text>
           </View>
         ) : null}
 
@@ -375,6 +465,7 @@ const styles = StyleSheet.create({
   },
   mockNote: { color: colors.muted, fontSize: 12, marginTop: 8, fontStyle: 'italic' },
   card: { backgroundColor: colors.surface, borderRadius: radius.md, padding: 16 },
+  cardSpaced: { marginTop: 16 },
   cardTitle: { color: colors.cream, fontSize: 16, fontWeight: '800', marginBottom: 12 },
   whyRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   whyLabel: { color: colors.muted, fontSize: 13, fontWeight: '600', width: 76 },
@@ -405,6 +496,13 @@ const styles = StyleSheet.create({
   lipText: { flex: 1 },
   lipName: { color: colors.cream, fontSize: 14, fontWeight: '700' },
   lipNote: { color: colors.muted, fontSize: 12, marginTop: 1 },
+  feedbackRow: { flexDirection: 'row', gap: 10 },
+  feedbackBtn: { flex: 1, borderRadius: radius.md, paddingVertical: 12, alignItems: 'center' },
+  feedbackYes: { backgroundColor: colors.gold },
+  feedbackYesText: { color: '#1a120b', fontSize: 14, fontWeight: '800' },
+  feedbackNo: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.goldDim },
+  feedbackNoText: { color: colors.goldSoft, fontSize: 14, fontWeight: '700' },
+  feedbackThanks: { color: colors.cream, fontSize: 14, lineHeight: 20 },
   storeName: { color: colors.cream, fontSize: 15, fontWeight: '700' },
   storeDetail: { color: colors.muted, fontSize: 13, marginTop: 2 },
   linkBtn: { alignItems: 'center', marginTop: 20, paddingVertical: 8 },

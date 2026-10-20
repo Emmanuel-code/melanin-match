@@ -52,6 +52,7 @@ Then open it in Expo Go (dev build needed for camera in production builds —
 app/
   _layout.tsx      # expo-router Stack, dark theme
   index.tsx        # Home — pitch, 3 steps, CTA
+  onboarding.tsx   # 3-slide intro: the problem, the undertone secret, the proof
   capture.tsx      # Photo capture (camera + gallery) with guidance checklist
   analyzing.tsx    # Pipeline runner with visible step list
   results.tsx      # Match hero, Fitzpatrick + undertone badges, "Why this match"
@@ -71,6 +72,8 @@ lib/
                    # deep tones
   match.ts         # hexToRgb, weighted-RGB color distance, undertone analysis,
                    # undertone-weighted ranking, match explanations
+  pairings.ts      # Lip shades that flatter each undertone
+  session.ts       # Session-scoped state (onboarding seen flag)
   theme.ts         # Design tokens (espresso + gold)
 ```
 

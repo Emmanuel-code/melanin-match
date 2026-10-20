@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, radius } from '../lib/theme';
+import { hasSeenOnboarding } from '../lib/session';
 
 const STEPS = [
   { n: '1', title: 'Snap your selfie', desc: 'One clear photo, good light. That’s all we need.' },
@@ -23,7 +24,7 @@ export default function HomeScreen() {
         <TouchableOpacity
           style={styles.cta}
           activeOpacity={0.85}
-          onPress={() => router.push('/capture')}
+          onPress={() => router.push(hasSeenOnboarding() ? '/capture' : '/onboarding')}
         >
           <Text style={styles.ctaText}>Find my shade</Text>
         </TouchableOpacity>

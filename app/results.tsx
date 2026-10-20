@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ScoreBar from '../components/ScoreBar';
 import ShadeCard from '../components/ShadeCard';
 import { analyzeUndertone, explainMatch, MatchedShade } from '../lib/match';
+import { lipPairingsFor } from '../lib/pairings';
 import { colors, radius } from '../lib/theme';
 import { FITZPATRICK_LABELS, isMockMode, SkinScores, tryOnShade } from '../lib/youcam';
 
@@ -245,7 +246,31 @@ export default function ResultsScreen() {
             hint="How balanced your skin's oil is."
           />
           <Text style={styles.fine}>Estimates from AI analysis, not medical advice.</Text>
+          <Text style={styles.fine}>
+            Skin tone can shift up to 4 shades across the year — re-scan each season to keep your
+            match true.
+          </Text>
         </View>
+
+        {/* Lip pairings */}
+        {undertone ? (
+          <>
+            <Text style={styles.sectionTitle}>Pairs with your {undertone.label.toLowerCase()} undertone</Text>
+            <View style={styles.card}>
+              {lipPairingsFor(undertone.undertone).map((lip) => (
+                <View key={lip.name} style={styles.lipRow}>
+                  <View style={[styles.lipSwatch, { backgroundColor: lip.hex }]} />
+                  <View style={styles.lipText}>
+                    <Text style={styles.lipName}>
+                      {lip.brand} — {lip.name}
+                    </Text>
+                    <Text style={styles.lipNote}>{lip.note}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </>
+        ) : null}
 
         {/* Stores */}
         <TouchableOpacity
@@ -375,6 +400,11 @@ const styles = StyleSheet.create({
   ctaGhost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.goldDim },
   ctaGhostText: { color: colors.goldSoft, fontSize: 16, fontWeight: '700' },
   store: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.surfaceLight },
+  lipRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
+  lipSwatch: { width: 30, height: 30, borderRadius: 15, marginRight: 12 },
+  lipText: { flex: 1 },
+  lipName: { color: colors.cream, fontSize: 14, fontWeight: '700' },
+  lipNote: { color: colors.muted, fontSize: 12, marginTop: 1 },
   storeName: { color: colors.cream, fontSize: 15, fontWeight: '700' },
   storeDetail: { color: colors.muted, fontSize: 13, marginTop: 2 },
   linkBtn: { alignItems: 'center', marginTop: 20, paddingVertical: 8 },

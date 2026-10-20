@@ -1,8 +1,10 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import FadeIn from '../components/FadeIn';
 import { colors, radius } from '../lib/theme';
+import { HERO_IMG } from '../lib/images';
 import { loadPassport, ShadePassport } from '../lib/passport';
 import { tourSeen } from '../lib/tour';
 
@@ -26,30 +28,39 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={styles.kicker}>FOR DEEP SKIN TONES</Text>
-        <Text style={styles.title}>Peach{'\n'}Match</Text>
-        <Text style={styles.tagline}>
-          Foundation shades matched to YOUR skin. Built for the deep tones the beauty industry
-          ignores.
-        </Text>
+        <FadeIn>
+          <Text style={styles.kicker}>FOR DEEP SKIN TONES</Text>
+          <Text style={styles.title}>Peach{'\n'}Match</Text>
+          <Text style={styles.tagline}>
+            Foundation shades matched to YOUR skin. Built for the deep tones the beauty industry
+            ignores.
+          </Text>
+        </FadeIn>
 
-        <TouchableOpacity
-          style={styles.cta}
-          activeOpacity={0.85}
-          onPress={() => router.push(onboarded ? '/capture' : '/onboarding')}
-        >
-          <Text style={styles.ctaText}>Find my shade</Text>
-        </TouchableOpacity>
+        <FadeIn delay={120}>
+          <Image source={{ uri: HERO_IMG }} style={styles.hero} />
+        </FadeIn>
 
-        <TouchableOpacity
-          style={styles.ctaGhost}
-          activeOpacity={0.85}
-          onPress={() => router.push('/store')}
-        >
-          <Text style={styles.ctaGhostText}>Peach Cosmetics — coming soon</Text>
-        </TouchableOpacity>
+        <FadeIn delay={220}>
+          <TouchableOpacity
+            style={styles.cta}
+            activeOpacity={0.85}
+            onPress={() => router.push(onboarded ? '/capture' : '/onboarding')}
+          >
+            <Text style={styles.ctaText}>Find my shade</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.ctaGhost}
+            activeOpacity={0.85}
+            onPress={() => router.push('/store')}
+          >
+            <Text style={styles.ctaGhostText}>Peach Cosmetics — coming soon</Text>
+          </TouchableOpacity>
+        </FadeIn>
 
         {passport ? (
+          <FadeIn delay={300}>
           <View style={styles.passport}>
             <Text style={styles.passportKicker}>YOUR SHADE PASSPORT</Text>
             <View style={styles.passportRow}>
@@ -71,8 +82,10 @@ export default function HomeScreen() {
               </View>
             </View>
           </View>
+          </FadeIn>
         ) : null}
 
+        <FadeIn delay={380}>
         <View style={styles.steps}>
           {STEPS.map((s) => (
             <View key={s.n} style={styles.step}>
@@ -86,6 +99,7 @@ export default function HomeScreen() {
             </View>
           ))}
         </View>
+        </FadeIn>
 
         <TouchableOpacity
           style={styles.linkBtn}
@@ -113,6 +127,13 @@ const styles = StyleSheet.create({
   },
   title: { color: colors.cream, fontSize: 56, fontWeight: '800', lineHeight: 58 },
   tagline: { color: colors.muted, fontSize: 16, lineHeight: 24, marginTop: 16 },
+  hero: {
+    width: '100%',
+    aspectRatio: 1.55,
+    borderRadius: radius.lg,
+    marginTop: 24,
+    backgroundColor: colors.surface,
+  },
   cta: {
     backgroundColor: colors.gold,
     borderRadius: radius.lg,

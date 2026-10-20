@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CoachTip from '../components/CoachTip';
+import FadeIn from '../components/FadeIn';
 import ScoreBar from '../components/ScoreBar';
 import ShadeCard from '../components/ShadeCard';
 import { analyzeUndertone, explainMatch, findConcealerShade, MatchedShade } from '../lib/match';
@@ -181,6 +182,7 @@ export default function ResultsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <FadeIn>
         <Text style={styles.title}>Your match</Text>
         <View style={styles.badgeRow}>
           {fitzLabel ? (
@@ -194,6 +196,7 @@ export default function ResultsScreen() {
             </View>
           ) : null}
         </View>
+        </FadeIn>
 
         {!mock && faceQuality < 60 ? (
           <View style={styles.warnCard}>
@@ -205,10 +208,12 @@ export default function ResultsScreen() {
           </View>
         ) : null}
 
-        <View style={styles.hero}>
-          <ShadeCard shade={current} large />
-          <Text style={styles.best}>Best match · {current.matchPercent}%</Text>
-        </View>
+        <FadeIn delay={80}>
+          <View style={styles.hero}>
+            <ShadeCard shade={current} large />
+            <Text style={styles.best}>Best match · {current.matchPercent}%</Text>
+          </View>
+        </FadeIn>
 
         {matches[0].matchPercent < 75 ? (
           <View style={styles.warnCard}>
@@ -221,6 +226,7 @@ export default function ResultsScreen() {
         ) : null}
 
         {explanation && undertone ? (
+          <FadeIn delay={140}>
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Why this match</Text>
             <View style={styles.whyRow}>
@@ -243,9 +249,11 @@ export default function ResultsScreen() {
               color space the cosmetics labs use.
             </Text>
           </View>
+          </FadeIn>
         ) : null}
 
         {concealer ? (
+          <FadeIn delay={200}>
           <View style={[styles.card, styles.cardSpaced]}>
             <Text style={styles.cardTitle}>Complete the base</Text>
             <View style={styles.lipRow}>
@@ -261,6 +269,7 @@ export default function ResultsScreen() {
               </View>
             </View>
           </View>
+          </FadeIn>
         ) : null}
 
         {/* Alternate shades */}

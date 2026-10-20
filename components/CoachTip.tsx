@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors, radius } from '../lib/theme';
 import { markTourSeen, tourSeen, TourKey } from '../lib/tour';
 
@@ -15,6 +15,7 @@ export interface CoachStep {
 export default function CoachTip({ tourKey, steps }: { tourKey: TourKey; steps: CoachStep[] }) {
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
+  const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     let live = true;
@@ -25,6 +26,12 @@ export default function CoachTip({ tourKey, steps }: { tourKey: TourKey; steps: 
       live = false;
     };
   }, [tourKey]);
+
+  useEffect(() => {
+    if (visible) {
+      Animated.spring(anim, { toValue: 1, useNativeDriver: true, friction: 8 }).start();
+    }
+  }, [visible, anim]);
 
   if (!visible) return null;
 
@@ -39,7 +46,17 @@ export default function CoachTip({ tourKey, steps }: { tourKey: TourKey; steps: 
   };
 
   return (
-    <View style={styles.card}>
+    <Animated.View
+      style={[
+        styles.card,
+        {
+          opacity: anim,
+          transform: [
+            { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) },
+          ],
+        },
+      ]}
+    >
       <Text style={styles.kicker}>
         QUICK TOUR · {step + 1}/{steps.length}
       </Text>
@@ -53,7 +70,7 @@ export default function CoachTip({ tourKey, steps }: { tourKey: TourKey; steps: 
           <Text style={styles.nextText}>{last ? 'Got it' : 'Next'}</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

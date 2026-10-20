@@ -1,15 +1,18 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import FadeIn from '../components/FadeIn';
 import { colors, radius } from '../lib/theme';
 import { markTourSeen } from '../lib/tour';
+import { ONBOARDING_PROBLEM_IMG, ONBOARDING_PROOF_IMG } from '../lib/images';
 
 interface Slide {
   kicker: string;
   title: string;
   body: string;
   swatches: string[];
+  image?: string;
 }
 
 const SLIDES: Slide[] = [
@@ -18,6 +21,7 @@ const SLIDES: Slide[] = [
     title: 'Made for deep skin. First.',
     body: '80% of women of color say they can’t find a foundation that matches. Store lighting lies, ranges stop at “medium”, and a wrong buy is money gone. We start where everyone else stops.',
     swatches: ['#a06a42', '#7d4f30', '#5c3a24', '#3d271b', '#2a1a10'],
+    image: ONBOARDING_PROBLEM_IMG,
   },
   {
     kicker: 'THE SECRET',
@@ -36,6 +40,7 @@ const SLIDES: Slide[] = [
     title: 'See it on your face first.',
     body: 'Your match isn’t a guess — you try it on your own photo and drag the slider to compare, before you spend a cedi. No beautifying blur, just the honest shade. And if your photo’s lighting is bad, we’ll tell you to retake it instead of selling you a lie.',
     swatches: ['#e9c37e', '#d4a24e', '#b97f2e'],
+    image: ONBOARDING_PROOF_IMG,
   },
   {
     kicker: 'THE KEEPSAKE',
@@ -64,15 +69,21 @@ export default function OnboardingScreen() {
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
 
-        <View style={styles.swatches}>
-          {slide.swatches.map((hex) => (
-            <View key={hex} style={[styles.swatch, { backgroundColor: hex }]} />
-          ))}
-        </View>
+        <FadeIn key={page}>
+          {slide.image ? (
+            <Image source={{ uri: slide.image }} style={styles.slideImage} />
+          ) : (
+            <View style={styles.swatches}>
+              {slide.swatches.map((hex) => (
+                <View key={hex} style={[styles.swatch, { backgroundColor: hex }]} />
+              ))}
+            </View>
+          )}
 
-        <Text style={styles.kicker}>{slide.kicker}</Text>
-        <Text style={styles.title}>{slide.title}</Text>
-        <Text style={styles.body}>{slide.body}</Text>
+          <Text style={styles.kicker}>{slide.kicker}</Text>
+          <Text style={styles.title}>{slide.title}</Text>
+          <Text style={styles.body}>{slide.body}</Text>
+        </FadeIn>
 
         <View style={styles.footer}>
           <View style={styles.dots}>
@@ -99,6 +110,14 @@ const styles = StyleSheet.create({
   skip: { alignSelf: 'flex-end', paddingVertical: 8, paddingHorizontal: 4 },
   skipText: { color: colors.muted, fontSize: 15, fontWeight: '600' },
   swatches: { flexDirection: 'row', gap: 10, marginTop: 40, marginBottom: 36 },
+  slideImage: {
+    width: '100%',
+    height: 300,
+    borderRadius: radius.lg,
+    marginTop: 32,
+    marginBottom: 32,
+    backgroundColor: colors.surface,
+  },
   swatch: { width: 44, height: 44, borderRadius: 22 },
   kicker: { color: colors.gold, fontSize: 12, fontWeight: '700', letterSpacing: 3 },
   title: { color: colors.cream, fontSize: 36, fontWeight: '800', lineHeight: 42, marginTop: 14 },

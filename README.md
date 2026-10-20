@@ -1,4 +1,4 @@
-# Melanin Match
+# Peach Match
 
 Foundation shades matched to YOUR skin — built for the deep tones the beauty
 industry ignores. Entry for the **YouCam API Skin AI & eCommerce VTO Hackathon**

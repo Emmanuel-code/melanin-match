@@ -15,7 +15,7 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Text style={styles.kicker}>FOR DEEP SKIN TONES</Text>
-        <Text style={styles.title}>Melanin{'\n'}Match</Text>
+        <Text style={styles.title}>Peach{'\n'}Match</Text>
         <Text style={styles.tagline}>
           Foundation shades matched to YOUR skin. Built for the deep tones the beauty industry
           ignores.

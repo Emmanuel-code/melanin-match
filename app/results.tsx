@@ -129,7 +129,7 @@ export default function ResultsScreen() {
 
   const shareResult = async () => {
     const msg =
-      `My Melanin Match result: ${current.brand} ${current.line} — shade ${current.name} ` +
+      `My Peach Match result: ${current.brand} ${current.line} — shade ${current.name} ` +
       `(${current.matchPercent}% match). Fitzpatrick ${params.fitzpatrick}. ` +
       `Foundation shades matched to YOUR skin.`;
     try {

@@ -29,6 +29,14 @@ export default function HomeScreen() {
           <Text style={styles.ctaText}>Find my shade</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={styles.ctaGhost}
+          activeOpacity={0.85}
+          onPress={() => router.push('/store')}
+        >
+          <Text style={styles.ctaGhostText}>Peach Cosmetics — coming soon</Text>
+        </TouchableOpacity>
+
         <View style={styles.steps}>
           {STEPS.map((s) => (
             <View key={s.n} style={styles.step}>
@@ -69,6 +77,16 @@ const styles = StyleSheet.create({
     marginTop: 32,
   },
   ctaText: { color: '#1a120b', fontSize: 18, fontWeight: '800' },
+  ctaGhost: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: colors.goldDim,
+    borderRadius: radius.lg,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  ctaGhostText: { color: colors.goldSoft, fontSize: 16, fontWeight: '700' },
   steps: { marginTop: 36 },
   step: { flexDirection: 'row', marginBottom: 20 },
   stepNum: {

@@ -17,6 +17,7 @@ import ShadeCard from '../components/ShadeCard';
 import { analyzeUndertone, explainMatch, findConcealerShade, MatchedShade } from '../lib/match';
 import { lipPairingsFor } from '../lib/pairings';
 import { SHADES } from '../lib/shades';
+import { STORE_NAME } from '../lib/store';
 import { recordMatchFeedback } from '../lib/session';
 import { colors, radius } from '../lib/theme';
 import { FITZPATRICK_LABELS, isMockMode, SkinScores, tryOnShade } from '../lib/youcam';
@@ -352,16 +353,27 @@ export default function ResultsScreen() {
           </>
         ) : null}
 
-        {/* Stores */}
+        {/* Buy — our own store first, marketplaces as the fallback */}
         <TouchableOpacity
           style={styles.cta}
           activeOpacity={0.85}
           onPress={() => setShowStores((s) => !s)}
         >
-          <Text style={styles.ctaText}>{showStores ? 'Hide stores' : 'Find a store'}</Text>
+          <Text style={styles.ctaText}>{showStores ? 'Hide buying options' : 'Buy my shade'}</Text>
         </TouchableOpacity>
         {showStores ? (
           <View style={styles.card}>
+            <Text style={styles.storeName}>{STORE_NAME} — our own store</Text>
+            <Text style={styles.storeDetail}>
+              Coming soon: order your exact shade directly from us, right inside Peach Match —
+              matched, tried on, and delivered by the same people who built your matcher. Until
+              we open, find your shade below.
+            </Text>
+            <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/store')}>
+              <Text style={styles.storeLink}>Peek at what's coming →</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.divider}>Find your shade now</Text>
             <TouchableOpacity style={styles.store} onPress={() => searchShade('jumia')}>
               <Text style={styles.storeName}>Search this shade on Jumia Ghana →</Text>
               <Text style={styles.storeDetail}>
@@ -378,7 +390,7 @@ export default function ResultsScreen() {
                 <Text style={styles.storeDetail}>{s.detail}</Text>
               </View>
             ))}
-            <Text style={styles.fine}>Store locations are demo data.</Text>
+            <Text style={styles.fine}>Physical store locations are demo data.</Text>
           </View>
         ) : null}
 
@@ -505,6 +517,15 @@ const styles = StyleSheet.create({
   feedbackThanks: { color: colors.cream, fontSize: 14, lineHeight: 20 },
   storeName: { color: colors.cream, fontSize: 15, fontWeight: '700' },
   storeDetail: { color: colors.muted, fontSize: 13, marginTop: 2 },
+  storeLink: { color: colors.goldSoft, fontSize: 14, fontWeight: '700', marginTop: 14 },
+  divider: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginTop: 20,
+    marginBottom: 2,
+  },
   linkBtn: { alignItems: 'center', marginTop: 20, paddingVertical: 8 },
   linkText: { color: colors.goldSoft, fontSize: 15, fontWeight: '600' },
 });

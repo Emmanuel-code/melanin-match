@@ -90,4 +90,17 @@ export const SHADES: Shade[] = [
   { id: 'rb-510w', brand: 'Rare Beauty', line: 'Liquid Touch', name: '510W', hex: '#5f3a20' },
   { id: 'rb-540n', brand: 'Rare Beauty', line: 'Liquid Touch', name: '540N', hex: '#452a18' },
   { id: 'rb-570n', brand: 'Rare Beauty', line: 'Liquid Touch', name: '570N', hex: '#33200f' },
+  // Cool deep range — added 2026-10-20 to close the cool-tone gap (cool deep
+  // skin previously topped out at ~64%: the catalog leaned warm). These run
+  // rosy/plum (CIELAB hue <= 32) across a spread of deep L* values.
+  { id: 'nars-new-caledonia', brand: 'NARS', line: 'Natural Radiant Longwear', name: 'New Caledonia', hex: '#4a2b33' },
+  { id: 'nars-khartoum', brand: 'NARS', line: 'Natural Radiant Longwear', name: 'Khartoum', hex: '#2e1b22' },
+  { id: 'bb-cool-espresso', brand: 'Bobbi Brown', line: 'Skin Long-Wear Weightless', name: 'Cool Espresso', hex: '#3a222a' },
+  { id: 'bb-cool-walnut', brand: 'Bobbi Brown', line: 'Skin Long-Wear Weightless', name: 'Cool Walnut', hex: '#54333d' },
+  { id: 'el-7c1', brand: 'Estée Lauder', line: 'Double Wear', name: '7C1 Deep Spice', hex: '#5c363c' },
+  { id: 'el-8c1', brand: 'Estée Lauder', line: 'Double Wear', name: '8C1 Rich Java', hex: '#40262e' },
+  { id: 'lan-555', brand: 'Lancôme', line: 'Teint Idole Ultra Wear', name: '555 Suede C', hex: '#66404a' },
+  { id: 'lor-c10', brand: "L'Oréal Paris", line: 'True Match', name: 'C10 Deep Cool', hex: '#6e4750' },
+  { id: 'fenty-425', brand: 'Fenty Beauty', line: "Pro Filt'r Soft Matte", name: '425', hex: '#352029' },
+  { id: 'rb-560c', brand: 'Rare Beauty', line: 'Liquid Touch', name: '560C', hex: '#4e3038' },
 ];

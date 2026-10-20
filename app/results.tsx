@@ -1,9 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
   Linking,
+  PanResponder,
   ScrollView,
   Share,
   StyleSheet,
@@ -12,10 +13,12 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import CoachTip from '../components/CoachTip';
 import ScoreBar from '../components/ScoreBar';
 import ShadeCard from '../components/ShadeCard';
 import { analyzeUndertone, explainMatch, findConcealerShade, MatchedShade } from '../lib/match';
 import { lipPairingsFor } from '../lib/pairings';
+import { savePassport } from '../lib/passport';
 import { SHADES } from '../lib/shades';
 import { JUMIA_TRACKING, STORE_NAME } from '../lib/store';
 import { recordMatchFeedback } from '../lib/session';
@@ -61,7 +64,23 @@ export default function ResultsScreen() {
   );
 
   const [selectedIdx, setSelectedIdx] = useState(0);
-  const [view, setView] = useState<'before' | 'after'>('after');
+  const [slider, setSlider] = useState(0.5);
+  const [photoW, setPhotoW] = useState(0);
+  const photoWRef = useRef(0);
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (e) => {
+        const w = photoWRef.current;
+        if (w > 0) setSlider(Math.min(1, Math.max(0, e.nativeEvent.locationX / w)));
+      },
+      onPanResponderMove: (e) => {
+        const w = photoWRef.current;
+        if (w > 0) setSlider(Math.min(1, Math.max(0, e.nativeEvent.locationX / w)));
+      },
+    }),
+  ).current;
   const [tryOnUrl, setTryOnUrl] = useState(params.tryOnUrl ?? originalUri);
   const [tryingOn, setTryingOn] = useState(false);
   const [showStores, setShowStores] = useState(false);
@@ -99,6 +118,26 @@ export default function ResultsScreen() {
   );
   const [feedback, setFeedback] = useState<'yes' | 'no' | null>(null);
 
+  // Shade Passport: keep the top match on-device for the home screen.
+  useEffect(() => {
+    const top = matches[0];
+    if (!top) return;
+    savePassport({
+      skinHex,
+      fitzpatrickLabel: fitzLabel,
+      undertoneLabel: undertone?.label ?? '',
+      brand: top.brand,
+      line: top.line,
+      shadeName: top.name,
+      shadeHex: top.hex,
+      matchPercent: top.matchPercent,
+      concealerLabel: concealer ? `${concealer.brand} ${concealer.name}` : undefined,
+      savedAt: new Date().toISOString(),
+    });
+    // once per results view — the passport tracks the top match
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const giveFeedback = (good: boolean) => {
     recordMatchFeedback(good);
     setFeedback(good ? 'yes' : 'no');
@@ -120,7 +159,6 @@ export default function ResultsScreen() {
     try {
       const url = await tryOnShade(fileId, matches[idx].hex, originalUri);
       setTryOnUrl(url);
-      setView('after');
     } catch {
       // keep the previous try-on image; the shade card still updates
     } finally {
@@ -243,33 +281,40 @@ export default function ResultsScreen() {
           ))}
         </View>
 
-        {/* Before / after */}
+        {/* Before / after — draggable comparison slider */}
         <Text style={styles.sectionTitle}>See it on you</Text>
-        <View style={styles.toggle}>
-          {(['before', 'after'] as const).map((v) => (
-            <TouchableOpacity
-              key={v}
-              style={[styles.toggleBtn, view === v && styles.toggleBtnActive]}
-              activeOpacity={0.8}
-              onPress={() => setView(v)}
-            >
-              <Text style={[styles.toggleText, view === v && styles.toggleTextActive]}>
-                {v === 'before' ? 'Before' : 'Try-on'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <View style={styles.photoWrap}>
-          <Image
-            source={{ uri: view === 'before' ? originalUri : tryOnUrl }}
-            style={styles.photo}
-          />
+        <View
+          style={styles.photoWrap}
+          onLayout={(e) => {
+            photoWRef.current = e.nativeEvent.layout.width;
+            setPhotoW(e.nativeEvent.layout.width);
+          }}
+          {...panResponder.panHandlers}
+        >
+          <Image source={{ uri: originalUri }} style={styles.photo} />
+          <View style={[styles.afterClip, { width: `${slider * 100}%` }]}>
+            <Image
+              source={{ uri: tryOnUrl }}
+              style={[styles.photo, { width: photoW || undefined }]}
+            />
+          </View>
+          <View style={[styles.sliderLine, { left: `${slider * 100}%` }]} pointerEvents="none" />
+          <View style={[styles.sliderHandle, { left: `${slider * 100}%` }]} pointerEvents="none">
+            <Text style={styles.sliderHandleText}>↔</Text>
+          </View>
+          <View style={styles.sliderTagL} pointerEvents="none">
+            <Text style={styles.sliderTagText}>Try-on</Text>
+          </View>
+          <View style={styles.sliderTagR} pointerEvents="none">
+            <Text style={styles.sliderTagText}>Before</Text>
+          </View>
           {tryingOn ? (
             <View style={styles.loadingOverlay}>
               <ActivityIndicator size="large" color={colors.gold} />
             </View>
           ) : null}
         </View>
+        <Text style={styles.mockNote}>Drag the handle — one side is you, the other is your shade on you.</Text>
         {mock ? (
           <Text style={styles.mockNote}>
             Demo mode — with a YouCam API key this shows the real virtual try-on.
@@ -410,6 +455,23 @@ export default function ResultsScreen() {
           <Text style={styles.linkText}>← Start over</Text>
         </TouchableOpacity>
       </ScrollView>
+      <CoachTip
+        tourKey="results"
+        steps={[
+          {
+            title: 'Your match — and why',
+            body: 'The top card is your closest shade. “Why this match” shows the working: depth closeness plus undertone alignment — the two things shops never tell you.',
+          },
+          {
+            title: 'Drag the slider',
+            body: 'On your photo, drag the gold handle to compare bare skin against your shade. Tapping a shade under “Also close” re-renders the try-on.',
+          },
+          {
+            title: 'Saved, and where to buy',
+            body: 'This match now lives in your Shade Passport on the home screen. “Buy my shade” starts with Peach Cosmetics (coming soon) — Jumia and Google are right below it.',
+          },
+        ]}
+      />
     </SafeAreaView>
   );
 }
@@ -469,6 +531,47 @@ const styles = StyleSheet.create({
   toggleTextActive: { color: '#1a120b' },
   photoWrap: { marginTop: 12, borderRadius: radius.lg, overflow: 'hidden' },
   photo: { width: '100%', aspectRatio: 3 / 4, backgroundColor: colors.surface },
+  afterClip: { position: 'absolute', top: 0, bottom: 0, left: 0, overflow: 'hidden' },
+  sliderLine: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 2,
+    marginLeft: -1,
+    backgroundColor: colors.gold,
+  },
+  sliderHandle: {
+    position: 'absolute',
+    top: '50%',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginLeft: -18,
+    marginTop: -18,
+    backgroundColor: colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sliderHandleText: { color: '#1a120b', fontSize: 16, fontWeight: '800' },
+  sliderTagL: {
+    position: 'absolute',
+    left: 10,
+    bottom: 10,
+    backgroundColor: 'rgba(26,18,11,0.7)',
+    borderRadius: radius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  sliderTagR: {
+    position: 'absolute',
+    right: 10,
+    bottom: 10,
+    backgroundColor: 'rgba(26,18,11,0.7)',
+    borderRadius: radius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  sliderTagText: { color: colors.cream, fontSize: 11, fontWeight: '700' },
   loadingOverlay: {
     ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(26,18,11,0.6)',

@@ -1,9 +1,9 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, radius } from '../lib/theme';
-import { markOnboardingSeen } from '../lib/session';
+import { markTourSeen } from '../lib/tour';
 
 interface Slide {
   kicker: string;
@@ -26,21 +26,35 @@ const SLIDES: Slide[] = [
     swatches: ['#d4a24e', '#c9a227', '#ab9a7e', '#b76e79', '#8e4a5b'],
   },
   {
+    kicker: 'THE SCIENCE',
+    title: 'One selfie.\nReal color science.',
+    body: 'YouCam’s AI reads your exact skin tone and Fitzpatrick type. Then we match in CIELAB — the color space cosmetics labs use — across 78 shades from 10 brands, deep ranges first. No guessing, no shop lighting.',
+    swatches: ['#c98d5f', '#9c6a41', '#6a4226', '#452a20', '#26180f'],
+  },
+  {
     kicker: 'THE PROOF',
     title: 'See it on your face first.',
-    body: 'Your match isn’t a guess — you try it on your own photo before you spend a cedi. No beautifying blur, just the honest shade. And if your photo’s lighting is bad, we’ll tell you to retake it instead of selling you a lie.',
+    body: 'Your match isn’t a guess — you try it on your own photo and drag the slider to compare, before you spend a cedi. No beautifying blur, just the honest shade. And if your photo’s lighting is bad, we’ll tell you to retake it instead of selling you a lie.',
     swatches: ['#e9c37e', '#d4a24e', '#b97f2e'],
+  },
+  {
+    kicker: 'THE KEEPSAKE',
+    title: 'Your shade,\nsaved for good.',
+    body: 'Your match becomes your Shade Passport — saved on this phone, no account, nothing uploaded. Skin shifts up to 4 shades across the year, so re-scan each season. And soon, Peach Cosmetics — our own store — sells you the exact shade, right here.',
+    swatches: ['#f2c894', '#e0aa6e', '#c98d5f', '#9c6a41'],
   },
 ];
 
 export default function OnboardingScreen() {
+  const params = useLocalSearchParams<{ replay?: string }>();
   const [page, setPage] = useState(0);
   const slide = SLIDES[page];
   const last = page === SLIDES.length - 1;
 
   const finish = () => {
-    markOnboardingSeen();
-    router.replace('/capture');
+    markTourSeen('onboarding');
+    if (params.replay === '1') router.back();
+    else router.replace('/capture');
   };
 
   return (

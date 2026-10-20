@@ -100,19 +100,22 @@ export function analyzeUndertone(skinHex: string): UndertoneResult {
   let hue = (Math.atan2(b, a) * 180) / Math.PI;
   if (hue < 0) hue += 360;
   const hueAngle = Math.round(hue);
-  if (hue >= 45) {
+  // Hue wraps: 355° sits next to 0°, not up by 45° — classify on the signed
+  // angle (-180..180) so deep rosy/plum tones (slightly negative) read cool.
+  const signed = hue > 180 ? hue - 360 : hue;
+  if (signed >= 45) {
     return {
       undertone: 'warm',
-      confidence: Math.min(99, Math.round(60 + (hue - 45) * 2)),
+      confidence: Math.min(99, Math.round(60 + (signed - 45) * 2)),
       hueAngle,
       label: 'Warm',
       tip: 'Golden / yellow base — look for shades labeled W, Warm, or Golden.',
     };
   }
-  if (hue <= 32) {
+  if (signed <= 32) {
     return {
       undertone: 'cool',
-      confidence: Math.min(99, Math.round(60 + (32 - hue) * 2)),
+      confidence: Math.min(99, Math.round(60 + (32 - signed) * 2)),
       hueAngle,
       label: 'Cool',
       tip: 'Pink / rosy base — look for shades labeled C, Cool, or Rosy.',

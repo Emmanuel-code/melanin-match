@@ -1,8 +1,10 @@
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, radius } from '../lib/theme';
-import { hasSeenOnboarding } from '../lib/session';
+import { loadPassport, ShadePassport } from '../lib/passport';
+import { tourSeen } from '../lib/tour';
 
 const STEPS = [
   { n: '1', title: 'Snap your selfie', desc: 'One clear photo, good light. That’s all we need.' },
@@ -11,6 +13,16 @@ const STEPS = [
 ];
 
 export default function HomeScreen() {
+  const [passport, setPassport] = useState<ShadePassport | null>(null);
+  const [onboarded, setOnboarded] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadPassport().then(setPassport).catch(() => {});
+      tourSeen('onboarding').then(setOnboarded).catch(() => {});
+    }, []),
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -24,7 +36,7 @@ export default function HomeScreen() {
         <TouchableOpacity
           style={styles.cta}
           activeOpacity={0.85}
-          onPress={() => router.push(hasSeenOnboarding() ? '/capture' : '/onboarding')}
+          onPress={() => router.push(onboarded ? '/capture' : '/onboarding')}
         >
           <Text style={styles.ctaText}>Find my shade</Text>
         </TouchableOpacity>
@@ -36,6 +48,30 @@ export default function HomeScreen() {
         >
           <Text style={styles.ctaGhostText}>Peach Cosmetics — coming soon</Text>
         </TouchableOpacity>
+
+        {passport ? (
+          <View style={styles.passport}>
+            <Text style={styles.passportKicker}>YOUR SHADE PASSPORT</Text>
+            <View style={styles.passportRow}>
+              <View style={[styles.passportSwatch, { backgroundColor: passport.shadeHex }]} />
+              <View style={styles.passportText}>
+                <Text style={styles.passportShade}>
+                  {passport.brand} {passport.line} — {passport.shadeName}
+                </Text>
+                <Text style={styles.passportMeta}>
+                  {passport.matchPercent}% match · {passport.undertoneLabel} undertone
+                  {passport.fitzpatrickLabel ? ` · ${passport.fitzpatrickLabel}` : ''}
+                </Text>
+                {passport.concealerLabel ? (
+                  <Text style={styles.passportMeta}>Concealer: {passport.concealerLabel}</Text>
+                ) : null}
+                <Text style={styles.passportMeta}>
+                  Saved {new Date(passport.savedAt).toLocaleDateString()} · kept on this device
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
 
         <View style={styles.steps}>
           {STEPS.map((s) => (
@@ -50,6 +86,14 @@ export default function HomeScreen() {
             </View>
           ))}
         </View>
+
+        <TouchableOpacity
+          style={styles.linkBtn}
+          activeOpacity={0.8}
+          onPress={() => router.push({ pathname: '/onboarding', params: { replay: '1' } })}
+        >
+          <Text style={styles.linkText}>How Peach Match works →</Text>
+        </TouchableOpacity>
 
         <Text style={styles.fine}>Powered by YouCam Skin AI</Text>
       </ScrollView>
@@ -87,6 +131,20 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   ctaGhostText: { color: colors.goldSoft, fontSize: 16, fontWeight: '700' },
+  passport: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: 16,
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: colors.goldDim,
+  },
+  passportKicker: { color: colors.gold, fontSize: 11, fontWeight: '700', letterSpacing: 2, marginBottom: 10 },
+  passportRow: { flexDirection: 'row', alignItems: 'center' },
+  passportSwatch: { width: 44, height: 44, borderRadius: 22, marginRight: 14 },
+  passportText: { flex: 1 },
+  passportShade: { color: colors.cream, fontSize: 15, fontWeight: '700' },
+  passportMeta: { color: colors.muted, fontSize: 12, marginTop: 2 },
   steps: { marginTop: 36 },
   step: { flexDirection: 'row', marginBottom: 20 },
   stepNum: {
@@ -103,4 +161,6 @@ const styles = StyleSheet.create({
   stepTitle: { color: colors.cream, fontSize: 16, fontWeight: '700' },
   stepDesc: { color: colors.muted, fontSize: 14, lineHeight: 20, marginTop: 2 },
   fine: { color: colors.goldDim, fontSize: 12, textAlign: 'center', marginTop: 32 },
+  linkBtn: { alignItems: 'center', marginTop: 24, paddingVertical: 8 },
+  linkText: { color: colors.goldSoft, fontSize: 15, fontWeight: '600' },
 });

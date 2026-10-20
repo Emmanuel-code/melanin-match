@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import CoachTip from '../components/CoachTip';
 import { colors, radius } from '../lib/theme';
 
 const CHECKLIST = [
@@ -111,6 +112,19 @@ export default function CaptureScreen() {
           </View>
         )}
       </ScrollView>
+      <CoachTip
+        tourKey="capture"
+        steps={[
+          {
+            title: 'Light is everything',
+            body: 'Face a window if you can. Our quality gate warns you if the light would throw your match off — we’d rather ask for a retake than guess.',
+          },
+          {
+            title: 'Your photo stays yours',
+            body: 'It’s analyzed only to read your skin tone, and never stored. Take a photo or pick one — then we do the science.',
+          },
+        ]}
+      />
     </SafeAreaView>
   );
 }

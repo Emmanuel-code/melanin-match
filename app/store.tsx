@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import CoachTip from '../components/CoachTip';
 import { SHADES, Shade } from '../lib/shades';
 import { STORE_NAME } from '../lib/store';
 import { colors, radius } from '../lib/theme';
@@ -90,6 +91,15 @@ export default function StoreScreen() {
           <Text style={styles.linkText}>← Back</Text>
         </TouchableOpacity>
       </ScrollView>
+      <CoachTip
+        tourKey="store"
+        steps={[
+          {
+            title: 'Our own shelves',
+            body: 'This is Peach Cosmetics’ opening catalog — every shade Peach Match can match you to. When the store opens, ordering happens right here.',
+          },
+        ]}
+      />
     </SafeAreaView>
   );
 }

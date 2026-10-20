@@ -7,7 +7,7 @@ industry ignores. Entry for the **YouCam API Skin AI & eCommerce VTO Hackathon**
 Snap a selfie → YouCam AI reads your exact skin tone (plus a Fitzpatrick type and
 skin scores for radiance, moisture, clarity, oil balance) → we detect your
 undertone (warm / neutral / cool) → match you to the closest foundation shades
-from a 68-shade catalog weighted toward deep/dark tones → you see the shade on
+from a 78-shade catalog weighted toward deep/dark tones → you see the shade on
 your own face with virtual try-on → the app shows its working in a "Why this
 match" card.
 
@@ -69,7 +69,7 @@ lib/
                    # results[].download_url). Mock mode when no API key.
   shades.ts        # Curated foundation catalog: Fenty, MAC, Maybelline,
                    # Black Opal, NARS, Lancôme, L'Oréal, Estée Lauder,
-                   # Rare Beauty — 68 shades, weighted toward deep tones
+                   # Rare Beauty — 78 shades, weighted toward deep tones
   match.ts         # CIELAB (hexToLab) delta E distance, hue-angle undertone
                    # analysis, undertone-weighted ranking, concealer finder,
                    # match explanations

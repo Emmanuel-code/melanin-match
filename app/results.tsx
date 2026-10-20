@@ -17,7 +17,7 @@ import ShadeCard from '../components/ShadeCard';
 import { analyzeUndertone, explainMatch, findConcealerShade, MatchedShade } from '../lib/match';
 import { lipPairingsFor } from '../lib/pairings';
 import { SHADES } from '../lib/shades';
-import { STORE_NAME } from '../lib/store';
+import { JUMIA_TRACKING, STORE_NAME } from '../lib/store';
 import { recordMatchFeedback } from '../lib/session';
 import { colors, radius } from '../lib/theme';
 import { FITZPATRICK_LABELS, isMockMode, SkinScores, tryOnShade } from '../lib/youcam';
@@ -108,7 +108,7 @@ export default function ResultsScreen() {
     const q = encodeURIComponent(`${current.brand} ${current.line} foundation shade ${current.name}`);
     const url =
       engine === 'jumia'
-        ? `https://www.jumia.com.gh/catalog/?q=${q}`
+        ? `https://www.jumia.com.gh/catalog/?q=${q}&${JUMIA_TRACKING}`
         : `https://www.google.com/search?q=${q}+buy`;
     Linking.openURL(url).catch(() => {});
   };

@@ -24,3 +24,14 @@ export function orderFromStore(items: string[]): void {
 export function foundationLabel(brand: string, line: string, name: string): string {
   return `${brand} ${line} foundation — shade ${name}`;
 }
+
+// Jumia JForce — Emmanuel's agent link (verified 2026-10-20: the short
+// link redirects to jumia.com.gh carrying these tracking parameters, so
+// purchases in that session are credited to him). Appending the same
+// parameters to a shade search keeps the tracking AND lands the user on
+// her exact shade. If Jumia ever rotates the code, refresh both values
+// from a fresh share link — this is the only place they live.
+export const JFORCE_SHARE_LINK = 'https://jforce.jumia.com.gh/s/k8zqgoN';
+export const JUMIA_TRACKING =
+  'utm_source=JFORCE&utm_medium=JF_Affiliate&utm_campaign=JF_Affiliate_GH' +
+  '&adj_label=casid*eb0e8674-ddb4-4361-999e-0c388e9c5978^type*jforce';

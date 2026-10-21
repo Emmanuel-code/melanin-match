@@ -63,20 +63,24 @@ export async function uploadPhoto(imageUri: string): Promise<string> {
     return 'mock-file-id';
   }
   const fileRes = await fetch(imageUri);
-  const blob = await fileRes.blob();
-  const fileSize = blob.size;
+  // Send the photo as an ArrayBuffer, NOT an RN Blob: the Blob path can
+  // rewrite the Content-Type / length actually sent, and the presigned PUT
+  // rejects any mismatch with a 403 (hit live 2026-10-21). An ArrayBuffer
+  // sends byte-exact with our Content-Type header intact.
+  const buf = await fileRes.arrayBuffer();
+  const fileSize = buf.byteLength;
   if (!fileSize) throw new Error('could not read photo bytes');
   const contentType = 'image/jpeg';
   const fileName = `selfie-${Date.now()}.jpg`;
 
   const { fileId, putUrl } = await getUploadUrl('skin-tone-analysis', contentType, fileName, fileSize);
 
-  // PUT the raw binary — Content-Type + Content-Length are required, skipping
-  // them breaks the presigned upload.
+  // PUT the raw binary. Content-Type must match the ticket exactly; do NOT
+  // set Content-Length by hand — the stack computes it from the buffer.
   const putRes = await fetch(putUrl, {
     method: 'PUT',
-    headers: { 'Content-Type': contentType, 'Content-Length': String(fileSize) },
-    body: blob,
+    headers: { 'Content-Type': contentType },
+    body: buf,
   });
   if (!putRes.ok) throw new Error(`photo upload failed (${putRes.status})`);
   return fileId;

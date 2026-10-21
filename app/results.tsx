@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Image,
   Linking,
   PanResponder,
@@ -22,7 +23,7 @@ import { lipPairingsFor } from '../lib/pairings';
 import { savePassport } from '../lib/passport';
 import { SHADES } from '../lib/shades';
 import { JUMIA_TRACKING, STORE_NAME } from '../lib/store';
-import { recordMatchFeedback } from '../lib/session';
+import { getLastResult, recordMatchFeedback } from '../lib/session';
 import { colors, radius } from '../lib/theme';
 import { FITZPATRICK_LABELS, isMockMode, SkinScores, tryOnShade } from '../lib/youcam';
 
@@ -71,22 +72,51 @@ export default function ResultsScreen() {
   const [slider, setSlider] = useState(0.5);
   const [photoW, setPhotoW] = useState(0);
   const photoWRef = useRef(0);
+  const userTouchedSlider = useRef(false);
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (e) => {
+        userTouchedSlider.current = true;
         const w = photoWRef.current;
         if (w > 0) setSlider(Math.min(1, Math.max(0, e.nativeEvent.locationX / w)));
       },
       onPanResponderMove: (e) => {
+        userTouchedSlider.current = true;
         const w = photoWRef.current;
         if (w > 0) setSlider(Math.min(1, Math.max(0, e.nativeEvent.locationX / w)));
       },
     }),
   ).current;
-  const [tryOnUrl, setTryOnUrl] = useState(params.tryOnUrl ?? originalUri);
+  // The signed try-on URL comes from the in-memory session (set by the
+  // analyzing screen) — route params are only a fallback; long signed URLs
+  // can be mangled by navigation serialization.
+  const [tryOnUrl, setTryOnUrl] = useState(
+    () => getLastResult()?.tryOnUrl ?? params.tryOnUrl ?? originalUri,
+  );
+  const [tryOnBroken, setTryOnBroken] = useState(false);
   const [tryingOn, setTryingOn] = useState(false);
+
+  // Intro sweep: when the results land, wipe the comparison open and closed
+  // once so the transformation reveals itself. Stops the moment he drags.
+  useEffect(() => {
+    const v = new Animated.Value(0.5);
+    const sub = v.addListener(({ value }) => {
+      if (!userTouchedSlider.current) setSlider(value);
+    });
+    const anim = Animated.sequence([
+      Animated.delay(500),
+      Animated.timing(v, { toValue: 0.94, duration: 750, useNativeDriver: false }),
+      Animated.timing(v, { toValue: 0.06, duration: 1150, useNativeDriver: false }),
+      Animated.timing(v, { toValue: 0.5, duration: 650, useNativeDriver: false }),
+    ]);
+    anim.start();
+    return () => {
+      v.removeListener(sub);
+      anim.stop();
+    };
+  }, []);
   const [showStores, setShowStores] = useState(false);
   const mock = isMockMode();
 
@@ -160,6 +190,7 @@ export default function ResultsScreen() {
     if (idx === selectedIdx || tryingOn) return;
     setSelectedIdx(idx);
     setTryingOn(true);
+    setTryOnBroken(false);
     try {
       const url = await tryOnShade(fileId, matches[idx].hex, originalUri);
       setTryOnUrl(url);
@@ -217,6 +248,58 @@ export default function ResultsScreen() {
             <Text style={styles.best}>Best match · {current.matchPercent}%</Text>
           </View>
         </FadeIn>
+
+        {/* Before / after — draggable comparison slider */}
+        <Text style={styles.sectionTitle}>See it on you</Text>
+        <View
+          style={styles.photoWrap}
+          onLayout={(e) => {
+            photoWRef.current = e.nativeEvent.layout.width;
+            setPhotoW(e.nativeEvent.layout.width);
+          }}
+          {...panResponder.panHandlers}
+        >
+          <Image source={{ uri: originalUri }} style={styles.photo} />
+          <View style={[styles.afterClip, { width: `${slider * 100}%` }]}>
+            <Image
+              source={{ uri: tryOnUrl }}
+              style={[styles.photo, { width: photoW || undefined }]}
+              onError={() => setTryOnBroken(true)}
+            />
+          </View>
+          <View style={[styles.sliderLine, { left: `${slider * 100}%` }]} pointerEvents="none" />
+          <View style={[styles.sliderHandle, { left: `${slider * 100}%` }]} pointerEvents="none">
+            <Text style={styles.sliderHandleText}>↔</Text>
+          </View>
+          <View style={styles.sliderTagL} pointerEvents="none">
+            <Text style={styles.sliderTagText}>After</Text>
+          </View>
+          <View style={styles.sliderTagR} pointerEvents="none">
+            <Text style={styles.sliderTagText}>Before</Text>
+          </View>
+          {tryingOn ? (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color={colors.gold} />
+            </View>
+          ) : null}
+          {tryOnBroken && !tryingOn ? (
+            <View style={styles.loadingOverlay}>
+              <Text style={styles.warnText}>
+                The try-on preview couldn't load — your match above is still exact.
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        <Text style={styles.mockNote}>Bare skin on one side, your shade on you on the other — drag the gold handle.</Text>
+        {mock ? (
+          <Text style={styles.mockNote}>
+            Demo mode — with a YouCam API key this shows the real virtual try-on.
+          </Text>
+        ) : null}
+        <Text style={styles.mockNote}>
+          Blend check: when you buy it, stripe the shade at your jawline — the right one
+          disappears into your neck.
+        </Text>
 
         {matches[0].matchPercent < 75 ? (
           <View style={styles.warnCard}>
@@ -292,50 +375,6 @@ export default function ResultsScreen() {
             </TouchableOpacity>
           ))}
         </View>
-
-        {/* Before / after — draggable comparison slider */}
-        <Text style={styles.sectionTitle}>See it on you</Text>
-        <View
-          style={styles.photoWrap}
-          onLayout={(e) => {
-            photoWRef.current = e.nativeEvent.layout.width;
-            setPhotoW(e.nativeEvent.layout.width);
-          }}
-          {...panResponder.panHandlers}
-        >
-          <Image source={{ uri: originalUri }} style={styles.photo} />
-          <View style={[styles.afterClip, { width: `${slider * 100}%` }]}>
-            <Image
-              source={{ uri: tryOnUrl }}
-              style={[styles.photo, { width: photoW || undefined }]}
-            />
-          </View>
-          <View style={[styles.sliderLine, { left: `${slider * 100}%` }]} pointerEvents="none" />
-          <View style={[styles.sliderHandle, { left: `${slider * 100}%` }]} pointerEvents="none">
-            <Text style={styles.sliderHandleText}>↔</Text>
-          </View>
-          <View style={styles.sliderTagL} pointerEvents="none">
-            <Text style={styles.sliderTagText}>Try-on</Text>
-          </View>
-          <View style={styles.sliderTagR} pointerEvents="none">
-            <Text style={styles.sliderTagText}>Before</Text>
-          </View>
-          {tryingOn ? (
-            <View style={styles.loadingOverlay}>
-              <ActivityIndicator size="large" color={colors.gold} />
-            </View>
-          ) : null}
-        </View>
-        <Text style={styles.mockNote}>Drag the handle — one side is you, the other is your shade on you.</Text>
-        {mock ? (
-          <Text style={styles.mockNote}>
-            Demo mode — with a YouCam API key this shows the real virtual try-on.
-          </Text>
-        ) : null}
-        <Text style={styles.mockNote}>
-          Blend check: when you buy it, stripe the shade at your jawline — the right one
-          disappears into your neck.
-        </Text>
 
         {/* Match feedback — the start of our validation loop */}
         <View style={[styles.card, styles.cardSpaced]}>

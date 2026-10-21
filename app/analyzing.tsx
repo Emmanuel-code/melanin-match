@@ -4,6 +4,7 @@ import { Alert, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import StepRow, { StepStatus } from '../components/StepRow';
 import { colors, radius } from '../lib/theme';
+import { setLastResult } from '../lib/session';
 import { isMockMode, PipelineStep, runPipeline } from '../lib/youcam';
 
 const STEPS: { key: PipelineStep; label: string }[] = [
@@ -36,6 +37,7 @@ export default function AnalyzingScreen() {
           if (idx >= 0) setActiveIndex(idx);
         });
         setFinished(true);
+        setLastResult(result);
         router.replace({
           pathname: '/results',
           params: {

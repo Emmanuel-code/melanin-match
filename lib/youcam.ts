@@ -275,10 +275,13 @@ export async function tryOnFoundation(
         category: 'foundation',
         palettes: [
           {
+            // Demo-strength: at 70/60 the render was nearly invisible on
+            // camera ("just the colour"). 85/85 reads as real foundation —
+            // evened, covered skin — without crossing into face paint.
             color: hexColor,
-            colorIntensity: 70,
-            glowIntensity: 30,
-            coverageIntensity: 60,
+            colorIntensity: 85,
+            glowIntensity: 35,
+            coverageIntensity: 85,
           },
         ],
       },

@@ -44,7 +44,7 @@ export default function AnalyzingScreen() {
             skinHex: result.skinColorHex,
             faceQuality: String(result.faceQuality),
             fitzpatrick: result.fitzpatrick,
-            scores: JSON.stringify(result.scores),
+            ...(result.scores ? { scores: JSON.stringify(result.scores) } : {}),
             matches: JSON.stringify(result.matches),
             tryOnUrl: result.tryOnUrl,
           },

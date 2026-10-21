@@ -6,7 +6,7 @@
 // returns realistic fake data after short delays, so the full UX is testable
 // today without a key. Mock mode is logged loudly on every pipeline run.
 
-import { findNearestShades, MatchedShade } from './match';
+import { findNearestShades, hexToLab, MatchedShade } from './match';
 
 const BASE_URL = 'https://yce-api-01.makeupar.com';
 const API_KEY = process.env.EXPO_PUBLIC_YOUCAM_API_KEY;
@@ -32,7 +32,9 @@ interface UploadTicket {
   putUrl: string;
 }
 
-// POST /s2s/v2.0/file/<feature> -> { file_id, <presigned PUT url> }
+// POST /s2s/v2.0/file/<feature> with a `files` array (a flat body is rejected
+// with 400 "files is required" — verified live 2026-10-21). Response is
+// enveloped: { status, data: { files: [{ file_id, requests: [{method, url}] }] } }
 async function getUploadUrl(
   feature: string,
   contentType: string,
@@ -43,15 +45,17 @@ async function getUploadUrl(
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({
-      content_type: contentType,
-      file_name: fileName,
-      file_size: fileSize,
+      files: [{ content_type: contentType, file_name: fileName, file_size: fileSize }],
     }),
   });
   if (!res.ok) throw new Error(`upload ticket failed (${res.status})`);
-  const data = await res.json();
-  const fileId: string | undefined = data.file_id ?? data.fileId;
-  const putUrl: string | undefined = data.upload_url ?? data.presigned_url ?? data.url;
+  const json = await res.json();
+  const file = json?.data?.files?.[0];
+  const fileId: string | undefined = file?.file_id;
+  const putReq = (file?.requests ?? []).find(
+    (r: { method?: string }) => r?.method === 'PUT',
+  );
+  const putUrl: string | undefined = putReq?.url ?? file?.requests?.[0]?.url;
   if (!fileId || !putUrl) throw new Error('upload ticket missing file_id or PUT url');
   return { fileId, putUrl };
 }
@@ -75,11 +79,14 @@ export async function uploadPhoto(imageUri: string): Promise<string> {
 
   const { fileId, putUrl } = await getUploadUrl('skin-tone-analysis', contentType, fileName, fileSize);
 
-  // PUT the raw binary. Content-Type must match the ticket exactly; do NOT
-  // set Content-Length by hand — the stack computes it from the buffer.
+  // PUT the raw binary. The presigned URL signs content-length + content-type
+  // (X-Amz-SignedHeaders), so BOTH headers must match the ticket exactly or
+  // S3 answers 403. The ArrayBuffer is byte-exact, so the length below is the
+  // true length either way the stack handles it. (The earlier Blob body was
+  // the 403 source: its sent headers could drift from the signed ones.)
   const putRes = await fetch(putUrl, {
     method: 'PUT',
-    headers: { 'Content-Type': contentType },
+    headers: { 'Content-Type': contentType, 'Content-Length': String(fileSize) },
     body: buf,
   });
   if (!putRes.ok) throw new Error(`photo upload failed (${putRes.status})`);
@@ -98,8 +105,8 @@ async function createTask(feature: string, body: Record<string, unknown>): Promi
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`createTask ${feature} failed (${res.status})`);
-  const data = await res.json();
-  const taskId: string | undefined = data.task_id ?? data.taskId;
+  const json = await res.json();
+  const taskId: string | undefined = json?.data?.task_id ?? json?.task_id;
   if (!taskId) throw new Error(`createTask ${feature} returned no task_id`);
   return taskId;
 }
@@ -112,11 +119,14 @@ async function pollTask(feature: string, taskId: string): Promise<any> {
       headers: authHeaders(),
     });
     if (!res.ok) throw new Error(`pollTask ${feature} failed (${res.status})`);
-    const data = await res.json();
+    const json = await res.json();
+    const data = json?.data ?? json;
     const status: string | undefined = data.task_status ?? data.status;
     if (status === 'success' || status === 'succeeded') return data.results ?? data.result;
     if (status === 'error' || status === 'failed') {
-      throw new Error(data.message ?? `${feature} task failed`);
+      // The API's own message is usually the actionable fix (e.g. face too
+      // small) — surface it verbatim.
+      throw new Error(data.error_message ?? data.message ?? data.error ?? `${feature} task failed`);
     }
     if (Date.now() - started > 90_000) throw new Error(`${feature} task timed out`);
     await sleep(2000);
@@ -150,6 +160,30 @@ export interface SkinToneResult {
   faceQuality: number;
 }
 
+// The API grades face quality qualitatively, not numerically (verified live
+// 2026-10-21): { has_face, area, frontal, lighting, faceangle } with grades
+// like "good". Convert to the 0–100 score the UI's quality gate expects.
+const GRADE_SCORES: Record<string, number> = {
+  good: 100,
+  fair: 65,
+  moderate: 65,
+  ok: 65,
+  poor: 30,
+  bad: 30,
+};
+
+function faceQualityScore(fq: unknown): number {
+  if (typeof fq === 'number') return fq;
+  if (!fq || typeof fq !== 'object') return 0;
+  const q = fq as Record<string, unknown>;
+  if (q.has_face === false) return 0;
+  const grades = ['area', 'frontal', 'lighting', 'faceangle']
+    .map((k) => GRADE_SCORES[String(q[k] ?? '').toLowerCase()])
+    .filter((v): v is number => typeof v === 'number');
+  if (!grades.length) return 50;
+  return Math.round(grades.reduce((a, b) => a + b, 0) / grades.length);
+}
+
 export async function analyzeSkinTone(src: string): Promise<SkinToneResult> {
   if (isMockMode()) {
     await sleep(900);
@@ -161,9 +195,8 @@ export async function analyzeSkinTone(src: string): Promise<SkinToneResult> {
   });
   const results = await pollTask('skin-tone-analysis', taskId);
   const hex: string | undefined = results?.color?.skin_color;
-  const faceQuality: number = results?.face_quality ?? 0;
   if (!hex) throw new Error('skin-tone-analysis returned no skin_color');
-  return { skinColorHex: hex, faceQuality };
+  return { skinColorHex: hex, faceQuality: faceQualityScore(results?.face_quality) };
 }
 
 export async function analyzeFitzpatrick(src: string): Promise<string> {
@@ -266,9 +299,21 @@ export interface PipelineResult {
   skinColorHex: string;
   faceQuality: number;
   fitzpatrick: string;
-  scores: SkinScores;
+  scores: SkinScores | null;
   matches: MatchedShade[];
   tryOnUrl: string;
+}
+
+// Fallback when the Fitzpatrick task itself errors: band the skin colour's
+// CIELAB lightness. Calibrated so #6d4d38 (live API: VI) lands in VI.
+function estimateFitzpatrick(skinHex: string): string {
+  const { L } = hexToLab(skinHex);
+  if (L >= 70) return 'I';
+  if (L >= 63) return 'II';
+  if (L >= 55) return 'III';
+  if (L >= 45) return 'IV';
+  if (L >= 35) return 'V';
+  return 'VI';
 }
 
 export const FITZPATRICK_LABELS: Record<string, string> = {
@@ -294,13 +339,16 @@ export async function runPipeline(
   const fileId = await uploadPhoto(imageUri);
 
   onStep('skinTone');
-  const [{ skinColorHex, faceQuality }, fitzpatrick] = await Promise.all([
-    analyzeSkinTone(fileId),
-    analyzeFitzpatrick(fileId),
-  ]);
+  const { skinColorHex, faceQuality } = await analyzeSkinTone(fileId);
 
   onStep('skinAnalysis');
-  const scores = await analyzeSkin(fileId);
+  // Skin scores and the Fitzpatrick read are supporting detail — the match is
+  // the product. If a supporting call fails (skin-analysis rejects faces
+  // under ~60% of frame width), degrade instead of dead-ending the result.
+  const [fitzpatrick, scores] = await Promise.all([
+    analyzeFitzpatrick(fileId).catch(() => estimateFitzpatrick(skinColorHex)),
+    analyzeSkin(fileId).catch(() => null),
+  ]);
 
   onStep('match');
   const matches = findNearestShades(skinColorHex, 3);

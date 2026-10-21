@@ -60,7 +60,10 @@ export default function ResultsScreen() {
     [params.matches],
   );
   const scores = useMemo(
-    () => parse<SkinScores>(params.scores, { acne: 0, oiliness: 0, moisture: 0, radiance: 0 }),
+    () =>
+      params.scores
+        ? parse<SkinScores>(params.scores, { acne: 0, oiliness: 0, moisture: 0, radiance: 0 })
+        : null,
     [params.scores],
   );
 
@@ -365,9 +368,11 @@ export default function ResultsScreen() {
           )}
         </View>
 
-        {/* Skin scores */}
-        <Text style={styles.sectionTitle}>Your skin, by the numbers</Text>
-        <View style={styles.card}>
+        {/* Skin scores — section hidden when the analysis returned none */}
+        {scores ? (
+          <>
+            <Text style={styles.sectionTitle}>Your skin, by the numbers</Text>
+            <View style={styles.card}>
           <ScoreBar label="Radiance" value={scores.radiance} />
           <ScoreBar label="Moisture" value={scores.moisture} />
           <ScoreBar
@@ -385,7 +390,9 @@ export default function ResultsScreen() {
             Skin tone can shift up to 4 shades across the year — re-scan each season to keep your
             match true.
           </Text>
-        </View>
+            </View>
+          </>
+        ) : null}
 
         {/* Lip pairings */}
         {undertone ? (

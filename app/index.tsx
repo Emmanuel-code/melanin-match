@@ -60,6 +60,24 @@ export default function HomeScreen() {
           >
             <Text style={styles.ctaText}>Find my shade</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.auditCta}
+            activeOpacity={0.85}
+            onPress={() => {
+              triggerHaptic.selection();
+              if (passport) {
+                router.push({
+                  pathname: '/audit',
+                  params: { skinHex: passport.shadeHex },
+                });
+              } else {
+                router.push('/audit');
+              }
+            }}
+          >
+            <Text style={styles.auditCtaText}>🔍 Test My Current Foundation (Makeup Bag Audit)</Text>
+          </TouchableOpacity>
         </FadeIn>
 
         {passport ? (
@@ -205,6 +223,22 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontFamily: fonts.bodyBold,
     letterSpacing: 0.5,
+  },
+  auditCta: {
+    marginTop: 12,
+    paddingVertical: 14,
+    borderRadius: radius.full,
+    borderWidth: 1.5,
+    borderColor: 'rgba(212, 162, 78, 0.4)',
+    backgroundColor: 'rgba(212, 162, 78, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  auditCtaText: {
+    color: colors.goldSoft,
+    fontSize: 13,
+    fontFamily: fonts.bodyBold,
+    letterSpacing: 0.3,
   },
   passport: {
     backgroundColor: colors.surface,

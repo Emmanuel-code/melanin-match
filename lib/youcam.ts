@@ -392,12 +392,12 @@ function estimateFitzpatrick(skinHex: string): string {
 }
 
 export const FITZPATRICK_LABELS: Record<string, string> = {
-  I: 'Very Fair',
-  II: 'Fair',
-  III: 'Medium',
-  IV: 'Olive / Tan',
-  V: 'Rich Brown',
-  VI: 'Deep Espresso',
+  I: 'Very Fair (Type I)',
+  II: 'Fair (Type II)',
+  III: 'Medium (Type III)',
+  IV: 'Olive & Tan (Type IV)',
+  V: 'Rich Bronze & Brown (Type V)',
+  VI: 'Deep Espresso (Type VI)',
 };
 
 export async function runPipeline(

@@ -20,10 +20,12 @@ import FadeIn from '../components/FadeIn';
 import MatchGauge from '../components/MatchGauge';
 import ScoreBar from '../components/ScoreBar';
 import ShadeCard from '../components/ShadeCard';
+import BrandBottle from '../components/BrandBottle';
 import { triggerHaptic } from '../lib/haptics';
 import { analyzeUndertone, explainMatch, findConcealerShade, MatchedShade } from '../lib/match';
 import { lipPairingsFor } from '../lib/pairings';
 import { savePassport } from '../lib/passport';
+import { getConcealerImage, getProductBottleImage } from '../lib/productImages';
 import { SHADES } from '../lib/shades';
 import { getLastPhotoUri, getLastResult, recordMatchFeedback } from '../lib/session';
 import { JUMIA_TRACKING, STORE_NAME } from '../lib/store';
@@ -468,6 +470,32 @@ export default function ResultsScreen() {
               </Text>
             </View>
 
+            {/* Direct Vanity Check Entry Point */}
+            <TouchableOpacity
+              style={styles.vanityCheckBtn}
+              activeOpacity={0.85}
+              onPress={() => {
+                triggerHaptic.selection();
+                router.push({
+                  pathname: '/audit',
+                  params: {
+                    skinHex,
+                    photoUri: displayUri,
+                    fileId,
+                  },
+                });
+              }}
+            >
+              <Text style={styles.vanityCheckBtnIcon}>🧪</Text>
+              <View style={styles.vanityCheckBtnTextWrap}>
+                <Text style={styles.vanityCheckBtnTitle}>Own a foundation already? Test it here</Text>
+                <Text style={styles.vanityCheckBtnSub}>
+                  Compare your current vanity bottle against this match & get a fix recipe
+                </Text>
+              </View>
+              <Text style={styles.vanityCheckBtnArrow}>→</Text>
+            </TouchableOpacity>
+
             {explanation && undertone ? (
               <FadeIn delay={120}>
                 <View style={[styles.card, styles.cardSpaced]}>
@@ -498,7 +526,14 @@ export default function ResultsScreen() {
                 <View style={[styles.card, styles.cardSpaced]}>
                   <Text style={styles.cardTitle}>A concealer that goes with it</Text>
                   <View style={styles.lipRow}>
-                    <View style={[styles.lipSwatch, { backgroundColor: concealer.hex }]} />
+                    <View style={styles.bottlePreviewWrap}>
+                      <Image
+                        source={getConcealerImage()}
+                        style={styles.bottlePreviewImg}
+                        resizeMode="cover"
+                      />
+                      <View style={[styles.bottlePreviewDroplet, { backgroundColor: concealer.hex }]} />
+                    </View>
                     <View style={styles.lipText}>
                       <Text style={styles.lipName}>
                         {concealer.brand} — {concealer.name}
@@ -526,8 +561,13 @@ export default function ResultsScreen() {
                     activeOpacity={0.8}
                     onPress={() => selectShade(i)}
                   >
-                    <View style={[styles.chipSwatch, { backgroundColor: m.hex }]} />
-                    <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
+                    <View style={styles.chipBottleWrap}>
+                      <BrandBottle brand={m.brand} shadeHex={m.hex} size={28} />
+                    </View>
+                    <Text
+                      style={[styles.chipText, isSelected && styles.chipTextSelected]}
+                      numberOfLines={1}
+                    >
                       {m.brand} · Shade {m.name}
                     </Text>
                     {isSelected ? <Text style={styles.chipCheck}> ✓</Text> : null}
@@ -674,7 +714,13 @@ export default function ResultsScreen() {
                 <Text style={styles.cardTitle}>Saved on this phone</Text>
               </View>
               <View style={styles.passportRow}>
-                <View style={[styles.passportSwatch, { backgroundColor: matches[0].hex }]} />
+                <View style={styles.bottlePreviewWrap}>
+                  <BrandBottle
+                    brand={matches[0].brand}
+                    shadeHex={matches[0].hex}
+                    size={38}
+                  />
+                </View>
                 <View style={styles.lipText}>
                   <Text style={styles.lipName}>
                     {matches[0].brand} {matches[0].line} — Shade {matches[0].name}
@@ -747,7 +793,13 @@ export default function ResultsScreen() {
 
       {/* Sticky Bottom Frosted Glass Dock */}
       <BlurView intensity={85} tint="dark" style={styles.dock}>
-        <View style={[styles.dockSwatch, { backgroundColor: current.hex }]} />
+        <View style={styles.dockBottleWrap}>
+          <BrandBottle
+            brand={current.brand}
+            shadeHex={current.hex}
+            size={36}
+          />
+        </View>
         <View style={styles.dockText}>
           <Text style={styles.dockName} numberOfLines={1}>
             Shade: {current.name}
@@ -1192,13 +1244,70 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(212, 162, 78, 0.12)',
   },
-  chipSwatch: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+  bottlePreviewWrap: {
+    position: 'relative',
+    marginRight: 14,
+  },
+  bottlePreviewImg: {
+    width: 44,
+    height: 54,
+    borderRadius: radius.sm,
+    borderWidth: 1.5,
+    borderColor: 'rgba(212, 162, 78, 0.3)',
+    backgroundColor: '#1b110a',
+  },
+  bottlePreviewDroplet: {
+    position: 'absolute',
+    right: -4,
+    bottom: -2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
+  },
+  chipBottleWrap: {
+    position: 'relative',
     marginRight: 8,
+  },
+  chipBottleImg: {
+    width: 22,
+    height: 28,
+    borderRadius: 3,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: 'rgba(212, 162, 78, 0.3)',
+    backgroundColor: '#1b110a',
+  },
+  chipDroplet: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: '#ffffff',
+  },
+  dockBottleWrap: {
+    position: 'relative',
+  },
+  dockBottleImg: {
+    width: 38,
+    height: 48,
+    borderRadius: radius.sm,
+    borderWidth: 1.5,
+    borderColor: colors.gold,
+    backgroundColor: '#1b110a',
+  },
+  dockDroplet: {
+    position: 'absolute',
+    right: -3,
+    bottom: -2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
   },
   chipText: {
     color: colors.cream,
@@ -1365,4 +1474,19 @@ const styles = StyleSheet.create({
     ...shadows.glowGold,
   },
   dockBtnText: { color: '#150d07', fontSize: 14, fontFamily: fonts.bodyBold },
+  vanityCheckBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(212, 162, 78, 0.12)',
+    borderRadius: radius.lg,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(212, 162, 78, 0.35)',
+    marginVertical: 14,
+  },
+  vanityCheckBtnIcon: { fontSize: 24, marginRight: 12 },
+  vanityCheckBtnTextWrap: { flex: 1 },
+  vanityCheckBtnTitle: { color: colors.goldSoft, fontSize: 14, fontFamily: fonts.bodyBold },
+  vanityCheckBtnSub: { color: colors.muted, fontSize: 11, fontFamily: fonts.body, marginTop: 2 },
+  vanityCheckBtnArrow: { color: colors.gold, fontSize: 16, fontFamily: fonts.bodyBold, marginLeft: 8 },
 });

@@ -1,6 +1,8 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import BrandBottle from './BrandBottle';
 import { triggerHaptic } from '../lib/haptics';
 import { MatchedShade } from '../lib/match';
+import { getProductBottleImage } from '../lib/productImages';
 import { colors, fonts, radius } from '../lib/theme';
 
 interface Props {
@@ -33,13 +35,12 @@ export default function ShadeCard({ shade, selected, onPress, large }: Props) {
       ) : null}
 
       <View style={styles.contentRow}>
-        <View style={styles.swatchWrap}>
-          <View
-            style={[
-              styles.swatch,
-              large && styles.swatchLarge,
-              { backgroundColor: shade.hex },
-            ]}
+        {/* Brand-Specific Realistic Bottle with Injected Shade Tone */}
+        <View style={styles.bottleWrap}>
+          <BrandBottle
+            brand={shade.brand}
+            shadeHex={shade.hex}
+            size={large ? 58 : 46}
           />
           {large ? <Text style={styles.swatchCaption}>Liquid Tone</Text> : null}
         </View>
@@ -61,7 +62,7 @@ export default function ShadeCard({ shade, selected, onPress, large }: Props) {
         <View style={styles.helperBox}>
           <Text style={styles.helperQuality}>{getMatchQuality(shade.matchPercent)}</Text>
           <Text style={styles.helperTip}>
-            Ask for this exact name and shade number at beauty counters, stalls, or online.
+            Ask for this exact brand and shade number at beauty counters, stalls, or online.
           </Text>
         </View>
       ) : null}
@@ -123,29 +124,46 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 4,
   },
-  swatchWrap: {
-    alignItems: 'center',
+  bottleWrap: {
+    position: 'relative',
     marginRight: 14,
+    alignItems: 'center',
   },
-  swatch: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  bottleImage: {
+    width: 46,
+    height: 56,
+    borderRadius: radius.sm,
+    borderWidth: 1.5,
+    borderColor: 'rgba(212, 162, 78, 0.3)',
+    backgroundColor: '#1b110a',
+  },
+  bottleImageLarge: {
+    width: 60,
+    height: 74,
+    borderRadius: radius.md,
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: colors.gold,
   },
-  swatchLarge: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    borderWidth: 2.5,
-    borderColor: 'rgba(212, 162, 78, 0.5)',
+  liquidBadge: {
+    position: 'absolute',
+    right: -4,
+    bottom: 12,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.4,
+    shadowRadius: 2,
+    elevation: 3,
   },
   swatchCaption: {
     color: colors.goldDim,
     fontSize: 9,
     fontFamily: fonts.bodySemi,
-    marginTop: 4,
+    marginTop: 3,
   },
   text: { flex: 1 },
   brand: {

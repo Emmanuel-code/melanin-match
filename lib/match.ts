@@ -162,3 +162,88 @@ export function explainMatch(skinHex: string, shade: Shade): MatchExplanation {
   const cap = (u: Undertone) => u[0].toUpperCase() + u.slice(1);
   return { depthScore, undertoneAligned: aligned, undertonePair: `${cap(skin)} ↔ ${cap(shadeTone)}` };
 }
+
+// --- Product Vanity Audit & Mixing Chemistry -------------------------------
+
+export interface AuditReport {
+  score: number;
+  verdict: 'flawless' | 'wearable_with_fix' | 'flashback_risk' | 'mismatched';
+  verdictTitle: string;
+  verdictDescription: string;
+  depthDifference: 'too_light' | 'spot_on' | 'too_dark';
+  undertoneDifference: 'needs_warmth' | 'needs_cooling' | 'neutral_aligned';
+  mixingRecipe?: {
+    recommendation: string;
+    pigmentColor: string;
+    drops: string;
+  };
+}
+
+export function auditProductMatch(skinHex: string, productHex: string): AuditReport {
+  const dist = colorDistance(skinHex, productHex);
+  const score = toPercent(dist);
+  const skinLab = hexToLab(skinHex);
+  const prodLab = hexToLab(productHex);
+
+  const skinUndertone = analyzeUndertone(skinHex).undertone;
+  const prodUndertone = analyzeUndertone(productHex).undertone;
+
+  const dL = prodLab.L - skinLab.L;
+  const depthDifference = dL > 3.5 ? 'too_light' : dL < -3.5 ? 'too_dark' : 'spot_on';
+
+  let undertoneDifference: 'needs_warmth' | 'needs_cooling' | 'neutral_aligned' = 'neutral_aligned';
+  if (skinUndertone === 'warm' && prodUndertone === 'cool') {
+    undertoneDifference = 'needs_warmth';
+  } else if (skinUndertone === 'cool' && prodUndertone === 'warm') {
+    undertoneDifference = 'needs_cooling';
+  }
+
+  if (score >= 90) {
+    return {
+      score,
+      verdict: 'flawless',
+      verdictTitle: '✨ Flawless Vanity Match',
+      verdictDescription: 'This bottle disappears into your jawline seamlessly with zero ghosting or oxidation lines.',
+      depthDifference,
+      undertoneDifference,
+    };
+  }
+
+  if (score >= 76) {
+    const isTooCool = undertoneDifference === 'needs_warmth';
+    return {
+      score,
+      verdict: 'wearable_with_fix',
+      verdictTitle: '⚡ Close Match — Fixable with a Pigment Drop',
+      verdictDescription: `This foundation is slightly ${
+        depthDifference === 'too_light' ? 'light' : depthDifference === 'too_dark' ? 'deep' : 'off in undertone'
+      }. You do not have to discard it — mix it with a color corrector to save the bottle!`,
+      depthDifference,
+      undertoneDifference,
+      mixingRecipe: {
+        recommendation: isTooCool
+          ? 'Add a tiny dot of yellow/orange color adjuster to cancel out any grey or ashy cast.'
+          : 'Add a tiny drop of blue or dark neutral adjuster to balance the warmth.',
+        pigmentColor: isTooCool ? '#e6a122' : '#2b4d8f',
+        drops: '1 pump foundation + 1/2 drop corrector',
+      },
+    };
+  }
+
+  const isAshRisk = depthDifference === 'too_light' || undertoneDifference === 'needs_warmth';
+  return {
+    score,
+    verdict: isAshRisk ? 'flashback_risk' : 'mismatched',
+    verdictTitle: isAshRisk ? '⚠️ High Flashback & Ash Alert' : '❌ Noticeable Shade Mismatch',
+    verdictDescription: isAshRisk
+      ? 'This formula will look chalky, grey, or create severe white flashback in night photos.'
+      : 'This shade has too much contrast with your natural undertone and will create an obvious mask line at your jaw.',
+    depthDifference,
+    undertoneDifference,
+    mixingRecipe: {
+      recommendation: 'Not recommended for solo wear. Best used for contouring, mixing with a deeper serum, or switching to your verified Peach Match.',
+      pigmentColor: '#c9a84c',
+      drops: 'Repurpose as highlight/bronzer or replace',
+    },
+  };
+}

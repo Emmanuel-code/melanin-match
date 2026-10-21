@@ -59,6 +59,11 @@ app/
                    # explainability card, face-quality retake warning,
                    # before/after try-on toggle, alternate shades,
                    # store finder (demo data), share
+  audit.tsx        # Two-Way Beauty Intelligence: "Vanity / Makeup Bag Audit"
+                   # Test your existing foundation against your skin tone,
+                   # Delta-E color science analysis, flash/ash risk detection,
+                   # live try-on comparison slider & formula rescue mixing recipes
+  store.tsx        # Peach Cosmetics Boutique & WhatsApp concierge pre-order
 components/
   ScoreBar.tsx     # Labeled 0–100 bar
   ShadeCard.tsx    # Foundation shade card (swatch + brand + match %)

@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CoachTip from '../components/CoachTip';
 import { triggerHaptic } from '../lib/haptics';
-import { ONBOARDING_PROOF_IMG } from '../lib/images';
+import { SAMPLE_IMG } from '../lib/images';
 import { setLastPhotoUri } from '../lib/session';
 import { colors, fonts, radius, shadows } from '../lib/theme';
 
@@ -62,8 +62,11 @@ export default function CaptureScreen() {
     triggerHaptic.light();
     setSampleBusy(true);
     try {
-      setPhotoUri(ONBOARDING_PROOF_IMG);
-      setLastPhotoUri(ONBOARDING_PROOF_IMG);
+      // The sample is Anastasia herself — founder of Peach Cosmetics, the
+      // woman Peach Match was built for. Face-tight crop, so the demo run
+      // clears the skin-analysis face-size rule and shows the full report.
+      setPhotoUri(SAMPLE_IMG);
+      setLastPhotoUri(SAMPLE_IMG);
       triggerHaptic.success();
     } finally {
       setSampleBusy(false);
@@ -193,7 +196,7 @@ export default function CaptureScreen() {
               disabled={sampleBusy}
             >
               <Text style={styles.sampleText}>
-                {sampleBusy ? 'Preparing sample portrait…' : 'No photo handy? Try with our sample portrait'}
+                {sampleBusy ? 'Preparing Anastasia’s portrait…' : 'No photo handy? See it on Anastasia — our founder'}
               </Text>
             </TouchableOpacity>
           </>

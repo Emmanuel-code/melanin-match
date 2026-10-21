@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import CoachTip from '../components/CoachTip';
 import FadeIn from '../components/FadeIn';
 import { triggerHaptic } from '../lib/haptics';
+import { FOUNDER_IMG } from '../lib/images';
 import { SHADES, Shade } from '../lib/shades';
 import { STORE_NAME, STORE_WHATSAPP } from '../lib/store';
 import { colors, fonts, radius, shadows } from '../lib/theme';
@@ -85,6 +86,21 @@ export default function StoreScreen() {
             Peach Match finds your perfect shade. Soon, {STORE_NAME} delivers it straight to your door.
             No more shop hunting, no wrong buys, and no guessing under fluorescent mall lighting.
           </Text>
+        </FadeIn>
+
+        {/* Founder — the woman Peach Match was built for */}
+        <FadeIn delay={30}>
+          <View style={styles.founderCard}>
+            <Image source={{ uri: FOUNDER_IMG }} style={styles.founderPhoto} />
+            <View style={styles.founderText}>
+              <Text style={styles.founderKicker}>MEET THE FOUNDER</Text>
+              <Text style={styles.founderName}>Anastasia</Text>
+              <Text style={styles.founderLine}>
+                Peach Cosmetics is Anastasia’s store. Peach Match exists because her customers
+                deserved a match that actually matches — no more guessing, no more grey.
+              </Text>
+            </View>
+          </View>
         </FadeIn>
 
         {/* VIP Launch Card */}
@@ -363,6 +379,43 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     lineHeight: 22,
     marginTop: 12,
+  },
+  founderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: 16,
+    marginTop: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 162, 78, 0.25)',
+  },
+  founderPhoto: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: colors.surfaceLight,
+  },
+  founderText: { flex: 1 },
+  founderKicker: {
+    color: colors.gold,
+    fontSize: 10,
+    fontFamily: fonts.bodyBold,
+    letterSpacing: 2,
+  },
+  founderName: {
+    color: colors.cream,
+    fontSize: 20,
+    fontFamily: fonts.displaySemi,
+    marginTop: 3,
+  },
+  founderLine: {
+    color: colors.muted,
+    fontSize: 12,
+    fontFamily: fonts.body,
+    lineHeight: 18,
+    marginTop: 4,
   },
   vipCard: {
     backgroundColor: 'rgba(38, 23, 12, 0.9)',

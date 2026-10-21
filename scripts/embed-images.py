@@ -22,6 +22,11 @@ PHOTOS = [
     ("HERO_IMG", "hero.jpg"),
     ("ONBOARDING_PROBLEM_IMG", "onboarding-problem.jpg"),
     ("ONBOARDING_PROOF_IMG", "onboarding-proof.jpg"),
+    # Anastasia — founder of Peach Cosmetics. The founder portrait dresses
+    # the boutique; the sample is a face-tight crop of the same photo so
+    # the demo sample clears the skin-analysis face-size rule (>60% width).
+    ("FOUNDER_IMG", "anastasia-founder.jpg"),
+    ("SAMPLE_IMG", "anastasia-sample.jpg"),
 ]
 
 

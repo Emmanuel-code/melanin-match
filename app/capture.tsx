@@ -69,7 +69,7 @@ export default function CaptureScreen() {
         </View>
 
         <Text style={styles.privacy}>
-          Privacy: your photo is analyzed by YouCam's AI to read your skin tone. We never store
+          Privacy: your photo is analyzed by YouCam’s AI to read your skin tone. We never store
           your photo.
         </Text>
 

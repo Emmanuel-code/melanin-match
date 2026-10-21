@@ -34,6 +34,22 @@ export default function CaptureScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [sampleBusy, setSampleBusy] = useState(false);
 
+  // Gallery picks come back as content:// URIs on Android: the pipeline can
+  // READ those, but the results screen's <Image> cannot always DISPLAY them
+  // (the "before" photo failed silently as flat colour — confirmed on
+  // device). Copy every pick into our own cache as a plain file up front;
+  // from there, display is bulletproof.
+  const normalizePhoto = async (uri: string): Promise<string> => {
+    if (uri.startsWith('file://')) return uri;
+    try {
+      const dest = `${FileSystem.cacheDirectory}peach-photo-${Date.now()}.jpg`;
+      await FileSystem.copyAsync({ from: uri, to: dest });
+      return dest;
+    } catch {
+      return uri;
+    }
+  };
+
   // Demo-day safety net: a bundled portrait, written to a real file so the
   // whole pipeline (including the upload) treats it exactly like a selfie.
   const useSample = async () => {
@@ -63,7 +79,7 @@ export default function CaptureScreen() {
       return;
     }
     const result = await ImagePicker.launchCameraAsync(PICKER_OPTIONS);
-    if (!result.canceled) setPhotoUri(result.assets[0].uri);
+    if (!result.canceled) setPhotoUri(await normalizePhoto(result.assets[0].uri));
   };
 
   const pickFromLibrary = async () => {
@@ -73,7 +89,7 @@ export default function CaptureScreen() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync(PICKER_OPTIONS);
-    if (!result.canceled) setPhotoUri(result.assets[0].uri);
+    if (!result.canceled) setPhotoUri(await normalizePhoto(result.assets[0].uri));
   };
 
   return (

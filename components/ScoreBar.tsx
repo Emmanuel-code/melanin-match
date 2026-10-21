@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../lib/theme';
 
 interface Props {
@@ -9,6 +10,20 @@ interface Props {
 
 export default function ScoreBar({ label, value, hint }: Props) {
   const clamped = Math.max(0, Math.min(100, Math.round(value)));
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const t = Animated.timing(anim, {
+      toValue: clamped,
+      duration: 750,
+      useNativeDriver: false,
+    });
+    t.start();
+    return () => t.stop();
+  }, [anim, clamped]);
+  const width = anim.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%'],
+  });
   return (
     <View style={styles.wrap}>
       <View style={styles.row}>
@@ -16,7 +31,7 @@ export default function ScoreBar({ label, value, hint }: Props) {
         <Text style={styles.value}>{clamped}</Text>
       </View>
       <View style={styles.track}>
-        <View style={[styles.fill, { width: `${clamped}%` }]} />
+        <Animated.View style={[styles.fill, { width }]} />
       </View>
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}
     </View>

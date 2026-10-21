@@ -140,6 +140,11 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     alignItems: 'center',
     marginTop: 32,
+    shadowColor: colors.gold,
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
   },
   ctaText: { color: '#1a120b', fontSize: 18, fontWeight: '800' },
   ctaGhost: {

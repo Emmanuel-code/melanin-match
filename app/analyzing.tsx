@@ -83,7 +83,8 @@ export default function AnalyzingScreen() {
       try {
         const result = await runPipeline(uri, onStep);
         goToResults(result);
-      } catch {
+      } catch (demoErr) {
+        console.error('[PeachMatch] demo fallback failed:', demoErr);
         Alert.alert('Demo unavailable', 'Please take the photo again.', [
           { text: 'Back', onPress: () => router.replace('/capture') },
         ]);
@@ -97,6 +98,9 @@ export default function AnalyzingScreen() {
         const result = await runPipeline(uri, onStep);
         goToResults(result);
       } catch (e) {
+        // Surface the raw API error in the console for live-demo diagnosis;
+        // the alert below carries the same message for the user.
+        console.error('[PeachMatch] live pipeline failed:', e);
         const msg = e instanceof Error ? e.message : 'Analysis failed';
         Alert.alert(
           'Hmm, that didn’t work',

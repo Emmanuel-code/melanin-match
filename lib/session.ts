@@ -18,6 +18,20 @@ export function getLastResult(): PipelineResult | null {
   return lastResult;
 }
 
+// The user's photo URI, also carried in memory. Gallery picks on Android
+// come back as content:// URIs full of %-escapes — passing those through
+// route params lets navigation decoding corrupt them, and the results
+// screen's "before" image then fails silently (flat colour, no photo).
+let lastPhotoUri: string | null = null;
+
+export function setLastPhotoUri(uri: string): void {
+  lastPhotoUri = uri;
+}
+
+export function getLastPhotoUri(): string | null {
+  return lastPhotoUri;
+}
+
 let onboardingSeen = false;
 
 export function hasSeenOnboarding(): boolean {

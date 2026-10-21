@@ -4,7 +4,7 @@ import { Alert, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import StepRow, { StepStatus } from '../components/StepRow';
 import { colors, radius } from '../lib/theme';
-import { setLastResult } from '../lib/session';
+import { setLastPhotoUri, setLastResult } from '../lib/session';
 import {
   isMockMode,
   PipelineResult,
@@ -55,6 +55,7 @@ export default function AnalyzingScreen() {
     const goToResults = (result: PipelineResult) => {
       setFinished(true);
       setLastResult(result);
+      setLastPhotoUri(uri);
       router.replace({
         pathname: '/results',
         params: {

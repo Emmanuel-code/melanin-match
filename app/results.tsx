@@ -23,7 +23,7 @@ import { lipPairingsFor } from '../lib/pairings';
 import { savePassport } from '../lib/passport';
 import { SHADES } from '../lib/shades';
 import { JUMIA_TRACKING, STORE_NAME } from '../lib/store';
-import { getLastResult, recordMatchFeedback } from '../lib/session';
+import { getLastPhotoUri, getLastResult, recordMatchFeedback } from '../lib/session';
 import { colors, radius } from '../lib/theme';
 import { FITZPATRICK_LABELS, isMockMode, SkinScores, tryOnShade } from '../lib/youcam';
 
@@ -55,6 +55,10 @@ export default function ResultsScreen() {
   }>();
 
   const originalUri = params.originalUri ?? '';
+  // The photo the user actually picked, byte-exact from the session. Route
+  // params can corrupt %-escaped content:// gallery URIs — when that
+  // happened, the "before" image silently failed and showed flat colour.
+  const displayUri = getLastPhotoUri() ?? originalUri;
   const fileId = params.fileId ?? '';
   const matches = useMemo(
     () => parse<MatchedShade[]>(params.matches, []),
@@ -108,6 +112,7 @@ export default function ResultsScreen() {
     () => getLastResult()?.tryOnUrl ?? params.tryOnUrl ?? originalUri,
   );
   const [tryOnBroken, setTryOnBroken] = useState(false);
+  const [beforeBroken, setBeforeBroken] = useState(false);
   const [tryingOn, setTryingOn] = useState(false);
 
   // Intro sweep: when the results land, wipe the comparison open and closed
@@ -132,7 +137,7 @@ export default function ResultsScreen() {
   const [showStores, setShowStores] = useState(false);
   const mock = isMockMode();
 
-  if (!originalUri || matches.length === 0) {
+  if (!displayUri || matches.length === 0) {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.center}>
@@ -204,7 +209,7 @@ export default function ResultsScreen() {
     setTryingOn(true);
     setTryOnBroken(false);
     try {
-      const url = await tryOnShade(fileId, matches[idx].hex, originalUri);
+      const url = await tryOnShade(fileId, matches[idx].hex, displayUri);
       setTryOnUrl(url);
     } catch {
       // keep the previous try-on image; the shade card still updates
@@ -271,7 +276,11 @@ export default function ResultsScreen() {
           }}
           {...panResponder.panHandlers}
         >
-          <Image source={{ uri: originalUri }} style={styles.photo} />
+          <Image
+            source={{ uri: displayUri }}
+            style={styles.photo}
+            onError={() => setBeforeBroken(true)}
+          />
           <View style={[styles.afterClip, { width: `${slider * 100}%` }]}>
             <Image
               source={{ uri: tryOnUrl }}
@@ -298,6 +307,17 @@ export default function ResultsScreen() {
             <View style={styles.loadingOverlay}>
               <Text style={styles.warnText}>
                 The try-on preview couldn't load — your match above is still exact.
+              </Text>
+            </View>
+          ) : null}
+          {beforeBroken ? (
+            <View
+              style={[styles.beforeNote, { width: `${(1 - slider) * 100}%` }]}
+              pointerEvents="none"
+            >
+              <Text style={styles.warnText}>
+                Your original photo couldn't be displayed here — the other side is your real
+                try-on render.
               </Text>
             </View>
           ) : null}
@@ -664,6 +684,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(26,18,11,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  beforeNote: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
   },
   mockNote: { color: colors.muted, fontSize: 12, marginTop: 8, fontStyle: 'italic' },
   card: { backgroundColor: colors.surface, borderRadius: radius.md, padding: 16 },

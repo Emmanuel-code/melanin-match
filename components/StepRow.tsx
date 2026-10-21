@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../lib/theme';
+import { colors, fonts } from '../lib/theme';
 
 export type StepStatus = 'pending' | 'active' | 'done';
 
@@ -9,22 +9,41 @@ interface Props {
   status: StepStatus;
 }
 
-// Pulsing gold dot for the step that's running right now — the wait should
-// feel alive, not stalled.
+// Pulsing halo and core dot for active step
 function PulseDot() {
-  const [v] = useState(() => new Animated.Value(0.55));
+  const scale = useRef(new Animated.Value(0.6)).current;
+  const opacity = useRef(new Animated.Value(0.8)).current;
+
   useEffect(() => {
     const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(v, { toValue: 1, duration: 550, useNativeDriver: true }),
-        Animated.timing(v, { toValue: 0.55, duration: 550, useNativeDriver: true }),
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(scale, { toValue: 1.25, duration: 700, useNativeDriver: true }),
+          Animated.timing(scale, { toValue: 0.6, duration: 700, useNativeDriver: true }),
+        ]),
+        Animated.sequence([
+          Animated.timing(opacity, { toValue: 0.3, duration: 700, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 0.9, duration: 700, useNativeDriver: true }),
+        ]),
       ]),
     );
     loop.start();
     return () => loop.stop();
-  }, [v]);
+  }, [scale, opacity]);
+
   return (
-    <Animated.View style={[styles.pulse, { opacity: v, transform: [{ scale: v }] }]} />
+    <View style={styles.pulseContainer}>
+      <Animated.View
+        style={[
+          styles.pulseHalo,
+          {
+            transform: [{ scale }],
+            opacity,
+          },
+        ]}
+      />
+      <View style={styles.pulseCore} />
+    </View>
   );
 }
 
@@ -33,7 +52,9 @@ export default function StepRow({ label, status }: Props) {
     <View style={styles.row}>
       <View style={styles.icon}>
         {status === 'done' ? (
-          <Text style={styles.check}>✓</Text>
+          <View style={styles.doneCircle}>
+            <Text style={styles.check}>✓</Text>
+          </View>
         ) : status === 'active' ? (
           <PulseDot />
         ) : (
@@ -45,6 +66,7 @@ export default function StepRow({ label, status }: Props) {
           styles.label,
           status === 'pending' && styles.labelPending,
           status === 'active' && styles.labelActive,
+          status === 'done' && styles.labelDone,
         ]}
       >
         {label}
@@ -54,18 +76,64 @@ export default function StepRow({ label, status }: Props) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
-  icon: { width: 32, alignItems: 'center', justifyContent: 'center' },
-  check: { color: colors.green, fontSize: 18, fontWeight: '700' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
+  icon: { width: 36, alignItems: 'center', justifyContent: 'center' },
+  doneCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(116, 201, 136, 0.15)',
+    borderWidth: 1,
+    borderColor: colors.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  check: { color: colors.green, fontSize: 13, fontWeight: '700' },
   dot: {
     width: 10,
     height: 10,
     borderRadius: 5,
     borderWidth: 1.5,
-    borderColor: colors.goldDim,
+    borderColor: colors.surfaceLight,
+    backgroundColor: 'transparent',
   },
-  pulse: { width: 13, height: 13, borderRadius: 7, backgroundColor: colors.gold },
-  label: { color: colors.cream, fontSize: 16, marginLeft: 4 },
-  labelPending: { color: colors.muted },
-  labelActive: { color: colors.goldSoft, fontWeight: '600' },
+  pulseContainer: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  pulseHalo: {
+    position: 'absolute',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.goldGlow,
+  },
+  pulseCore: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.gold,
+  },
+  label: {
+    color: colors.cream,
+    fontSize: 15,
+    fontFamily: fonts.bodyMedium,
+    marginLeft: 8,
+  },
+  labelPending: {
+    color: colors.muted,
+    fontFamily: fonts.body,
+    opacity: 0.6,
+  },
+  labelActive: {
+    color: colors.goldSoft,
+    fontFamily: fonts.bodyBold,
+  },
+  labelDone: {
+    color: colors.creamSoft,
+    fontFamily: fonts.bodySemi,
+  },
 });

@@ -1,11 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { colors, radius } from '../lib/theme';
+import { triggerHaptic } from '../lib/haptics';
+import { colors, fonts, radius, shadows } from '../lib/theme';
 import { markTourSeen, tourSeen, TourKey } from '../lib/tour';
-
-// First-visit helper card, anchored to the bottom of a screen. Walks the
-// user through what they're looking at in 1–3 short steps, then gets out
-// of the way forever (the seen-flag lives in lib/tour.ts).
 
 export interface CoachStep {
   title: string;
@@ -15,7 +12,7 @@ export interface CoachStep {
 export default function CoachTip({ tourKey, steps }: { tourKey: TourKey; steps: CoachStep[] }) {
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
-  const [anim] = useState(() => new Animated.Value(0));
+  const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     let live = true;
@@ -37,10 +34,12 @@ export default function CoachTip({ tourKey, steps }: { tourKey: TourKey; steps: 
 
   const last = step === steps.length - 1;
   const dismiss = () => {
+    triggerHaptic.light();
     setVisible(false);
     markTourSeen(tourKey);
   };
   const next = () => {
+    triggerHaptic.selection();
     if (last) dismiss();
     else setStep(step + 1);
   };
@@ -80,19 +79,40 @@ const styles = StyleSheet.create({
     left: 20,
     right: 20,
     bottom: 24,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
+    backgroundColor: '#26190f',
+    borderWidth: 1.5,
     borderColor: colors.gold,
     borderRadius: radius.lg,
-    padding: 16,
+    padding: 18,
     zIndex: 50,
+    ...shadows.card,
   },
-  kicker: { color: colors.gold, fontSize: 11, fontWeight: '700', letterSpacing: 2 },
-  title: { color: colors.cream, fontSize: 16, fontWeight: '800', marginTop: 8 },
-  body: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 6 },
-  row: { flexDirection: 'row', alignItems: 'center', marginTop: 14 },
+  kicker: {
+    color: colors.gold,
+    fontSize: 11,
+    fontFamily: fonts.bodyBold,
+    letterSpacing: 2,
+  },
+  title: {
+    color: colors.cream,
+    fontSize: 17,
+    fontFamily: fonts.displaySemi,
+    marginTop: 8,
+  },
+  body: {
+    color: colors.muted,
+    fontSize: 13,
+    fontFamily: fonts.body,
+    lineHeight: 20,
+    marginTop: 6,
+  },
+  row: { flexDirection: 'row', alignItems: 'center', marginTop: 16 },
   skipBtn: { paddingVertical: 8, paddingRight: 16 },
-  skipText: { color: colors.muted, fontSize: 14, fontWeight: '600' },
+  skipText: {
+    color: colors.muted,
+    fontSize: 13,
+    fontFamily: fonts.bodyMedium,
+  },
   nextBtn: {
     marginLeft: 'auto',
     backgroundColor: colors.gold,
@@ -100,5 +120,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 22,
   },
-  nextText: { color: '#1a120b', fontSize: 14, fontWeight: '800' },
+  nextText: {
+    color: '#150d07',
+    fontSize: 14,
+    fontFamily: fonts.bodyBold,
+  },
 });

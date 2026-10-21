@@ -69,18 +69,38 @@ async function getUploadUrl(
   return { fileId, putUrl };
 }
 
+// Decode a data: URI (base64-encoded image) into an ArrayBuffer without
+// calling fetch — Android's native fetch rejects the data: protocol.
+function decodeDataUri(dataUri: string): ArrayBuffer {
+  // Strip the header: "data:image/jpeg;base64,<b64>"
+  const comma = dataUri.indexOf(',');
+  const b64 = comma >= 0 ? dataUri.slice(comma + 1) : dataUri;
+  const binary = atob(b64);
+  const buf = new ArrayBuffer(binary.length);
+  const view = new Uint8Array(buf);
+  for (let i = 0; i < binary.length; i++) {
+    view[i] = binary.charCodeAt(i);
+  }
+  return buf;
+}
+
 // Uploads a local photo and returns its YouCam file_id.
 export async function uploadPhoto(imageUri: string): Promise<string> {
   if (isMockMode()) {
     await sleep(700);
     return 'mock-file-id';
   }
-  const fileRes = await fetch(imageUri);
-  // Send the photo as an ArrayBuffer, NOT an RN Blob: the Blob path can
-  // rewrite the Content-Type / length actually sent, and the presigned PUT
-  // rejects any mismatch with a 403 (hit live 2026-10-21). An ArrayBuffer
-  // sends byte-exact with our Content-Type header intact.
-  const buf = await fileRes.arrayBuffer();
+
+  let buf: ArrayBuffer;
+  if (imageUri.startsWith('data:')) {
+    // data: URIs are base64-encoded — decode directly (Android cannot fetch these).
+    buf = decodeDataUri(imageUri);
+  } else {
+    // file:// or https:// URI — fetch as a byte stream.
+    const fileRes = await fetch(imageUri);
+    buf = await fileRes.arrayBuffer();
+  }
+
   const fileSize = buf.byteLength;
   if (!fileSize) throw new Error('could not read photo bytes');
   const contentType = 'image/jpeg';
@@ -91,8 +111,7 @@ export async function uploadPhoto(imageUri: string): Promise<string> {
   // PUT the raw binary. The presigned URL signs content-length + content-type
   // (X-Amz-SignedHeaders), so BOTH headers must match the ticket exactly or
   // S3 answers 403. The ArrayBuffer is byte-exact, so the length below is the
-  // true length either way the stack handles it. (The earlier Blob body was
-  // the 403 source: its sent headers could drift from the signed ones.)
+  // true length either way the stack handles it.
   const putRes = await fetch(putUrl, {
     method: 'PUT',
     headers: { 'Content-Type': contentType, 'Content-Length': String(fileSize) },
@@ -373,12 +392,12 @@ function estimateFitzpatrick(skinHex: string): string {
 }
 
 export const FITZPATRICK_LABELS: Record<string, string> = {
-  I: 'Type I — very fair',
-  II: 'Type II — fair',
-  III: 'Type III — medium',
-  IV: 'Type IV — olive / tan',
-  V: 'Type V — brown',
-  VI: 'Type VI — deep brown',
+  I: 'Very Fair',
+  II: 'Fair',
+  III: 'Medium',
+  IV: 'Olive / Tan',
+  V: 'Rich Brown',
+  VI: 'Deep Espresso',
 };
 
 export async function runPipeline(

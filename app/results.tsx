@@ -1,3 +1,4 @@
+import { BlurView } from 'expo-blur';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -16,15 +17,17 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CoachTip from '../components/CoachTip';
 import FadeIn from '../components/FadeIn';
+import MatchGauge from '../components/MatchGauge';
 import ScoreBar from '../components/ScoreBar';
 import ShadeCard from '../components/ShadeCard';
+import { triggerHaptic } from '../lib/haptics';
 import { analyzeUndertone, explainMatch, findConcealerShade, MatchedShade } from '../lib/match';
 import { lipPairingsFor } from '../lib/pairings';
 import { savePassport } from '../lib/passport';
 import { SHADES } from '../lib/shades';
 import { getLastPhotoUri, getLastResult, recordMatchFeedback } from '../lib/session';
 import { JUMIA_TRACKING, STORE_NAME } from '../lib/store';
-import { colors, radius } from '../lib/theme';
+import { colors, fonts, radius, shadows } from '../lib/theme';
 import { FITZPATRICK_LABELS, isMockMode, SkinScores, tryOnShade } from '../lib/youcam';
 
 const STORES = [
@@ -35,8 +38,8 @@ const STORES = [
 
 type TabKey = 'match' | 'skin' | 'buy';
 const TABS: { key: TabKey; label: string }[] = [
-  { key: 'match', label: 'Try-On & Match' },
-  { key: 'skin', label: 'Skin Health' },
+  { key: 'match', label: 'My Match' },
+  { key: 'skin', label: 'Skin Tips' },
   { key: 'buy', label: 'Where to Buy' },
 ];
 
@@ -62,9 +65,7 @@ export default function ResultsScreen() {
   }>();
 
   const originalUri = params.originalUri ?? '';
-  // The photo the user actually picked, byte-exact from the session. Route
-  // params can corrupt %-escaped content:// gallery URIs — when that
-  // happened, the "before" image silently failed and showed flat colour.
+  // Prefer in-memory session photo (always the real uploaded image)
   const displayUri = getLastPhotoUri() ?? originalUri;
   const fileId = params.fileId ?? '';
   const matches = useMemo(
@@ -91,46 +92,84 @@ export default function ResultsScreen() {
 
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [tab, setTab] = useState<TabKey>('match');
+  const [segmentWidth, setSegmentWidth] = useState(0);
+  const tabTranslateX = useRef(new Animated.Value(0)).current;
+
+  const tabIndex = useMemo(() => TABS.findIndex((t) => t.key === tab), [tab]);
+
+  useEffect(() => {
+    if (segmentWidth > 0) {
+      const tabWidth = (segmentWidth - 8) / TABS.length;
+      Animated.spring(tabTranslateX, {
+        toValue: tabIndex * tabWidth,
+        useNativeDriver: true,
+        friction: 8,
+        tension: 70,
+      }).start();
+    }
+  }, [tabIndex, segmentWidth]);
+
   const [slider, setSlider] = useState(0.5);
   const [photoW, setPhotoW] = useState(0);
   const photoWRef = useRef(0);
   const userTouchedSlider = useRef(false);
-  /* eslint-disable react-hooks/refs -- PanResponder.create is a one-time
-     factory; the refs it closes over are read only inside gesture
-     callbacks, never during render. */
+  const prevMidCrossed = useRef(false);
+
+  // Spring animation for slider thumb scale
+  const thumbScale = useRef(new Animated.Value(1)).current;
+
   const [panResponder] = useState(() =>
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      // Claim moves only when they're mostly horizontal — vertical swipes
-      // belong to the page scroll, not the comparison slider.
       onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > Math.abs(g.dy),
       onPanResponderGrant: (e) => {
         userTouchedSlider.current = true;
+        triggerHaptic.selection();
+        Animated.spring(thumbScale, { toValue: 1.22, useNativeDriver: true, friction: 6 }).start();
         const w = photoWRef.current;
-        if (w > 0) setSlider(Math.min(1, Math.max(0, e.nativeEvent.locationX / w)));
+        if (w > 0) {
+          const pos = Math.min(1, Math.max(0, e.nativeEvent.locationX / w));
+          setSlider(pos);
+        }
       },
       onPanResponderMove: (e) => {
         userTouchedSlider.current = true;
         const w = photoWRef.current;
-        if (w > 0) setSlider(Math.min(1, Math.max(0, e.nativeEvent.locationX / w)));
+        if (w > 0) {
+          const pos = Math.min(1, Math.max(0, e.nativeEvent.locationX / w));
+          setSlider(pos);
+
+          // Subtle haptic tick when crossing the 50% comparison threshold
+          const isMid = pos >= 0.48 && pos <= 0.52;
+          if (isMid && !prevMidCrossed.current) {
+            triggerHaptic.light();
+            prevMidCrossed.current = true;
+          } else if (!isMid) {
+            prevMidCrossed.current = false;
+          }
+        }
+      },
+      onPanResponderRelease: () => {
+        Animated.spring(thumbScale, { toValue: 1, useNativeDriver: true, friction: 6 }).start();
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(thumbScale, { toValue: 1, useNativeDriver: true, friction: 6 }).start();
       },
     }),
   );
-  /* eslint-enable react-hooks/refs */
-  // The signed try-on URL comes from the in-memory session (set by the
-  // analyzing screen) — route params are only a fallback; long signed URLs
-  // can be mangled by navigation serialization.
+
   const sessionTryOnUrl = getLastResult()?.tryOnUrl;
-  const [tryOnUrl, setTryOnUrl] = useState(
-    () => sessionTryOnUrl ?? params.tryOnUrl ?? originalUri,
+  // The "before" is ALWAYS the uploaded photo â€” never a sample fallback.
+  // If displayUri is somehow empty we show a blank placeholder (not the demo image).
+  const uploadedPhoto = displayUri || '';
+  const [activeBeforeUri] = useState<string>(uploadedPhoto);
+  const [tryOnUrl, setTryOnUrl] = useState<string>(
+    () => sessionTryOnUrl ?? params.tryOnUrl ?? uploadedPhoto,
   );
   const [tryOnBroken, setTryOnBroken] = useState(false);
-  const [beforeBroken, setBeforeBroken] = useState(false);
   const [tryingOn, setTryingOn] = useState(false);
 
-  // Intro sweep: when the results land, wipe the comparison open and closed
-  // once so the transformation reveals itself — the thumb's hint that it
-  // drags. Stops the moment the user drags.
+  // Intro sweep
   useEffect(() => {
     const v = new Animated.Value(0.5);
     const sub = v.addListener(({ value }) => {
@@ -148,8 +187,8 @@ export default function ResultsScreen() {
       anim.stop();
     };
   }, []);
-  const mock = isMockMode();
 
+  const mock = isMockMode();
   const current = matches[selectedIdx] ?? matches[0];
   const fitzLabel = FITZPATRICK_LABELS[params.fitzpatrick ?? ''] ?? params.fitzpatrick ?? '';
   const skinHex = params.skinHex ?? '';
@@ -168,7 +207,7 @@ export default function ResultsScreen() {
   );
   const [feedback, setFeedback] = useState<'yes' | 'no' | null>(null);
 
-  // Shade Passport: keep the top match on-device for the home screen.
+  // Save top match to Shade Passport
   useEffect(() => {
     const top = matches[0];
     if (!top) return;
@@ -184,8 +223,6 @@ export default function ResultsScreen() {
       concealerLabel: concealer ? `${concealer.brand} ${concealer.name}` : undefined,
       savedAt: new Date().toISOString(),
     });
-    // once per results view — the passport tracks the top match
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!displayUri || matches.length === 0 || !current) {
@@ -193,7 +230,7 @@ export default function ResultsScreen() {
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.center}>
           <Text style={styles.title}>No results yet</Text>
-          <Text style={styles.sub}>Run the shade finder first.</Text>
+          <Text style={styles.sub}>Find your shade first.</Text>
           <TouchableOpacity style={styles.cta} onPress={() => router.replace('/')}>
             <Text style={styles.ctaText}>Start over</Text>
           </TouchableOpacity>
@@ -203,11 +240,13 @@ export default function ResultsScreen() {
   }
 
   const giveFeedback = (good: boolean) => {
+    triggerHaptic.medium();
     recordMatchFeedback(good);
     setFeedback(good ? 'yes' : 'no');
   };
 
   const searchShade = (engine: 'jumia' | 'google') => {
+    triggerHaptic.light();
     const q = encodeURIComponent(`${current.brand} ${current.line} foundation shade ${current.name}`);
     const url =
       engine === 'jumia'
@@ -218,6 +257,7 @@ export default function ResultsScreen() {
 
   const selectShade = async (idx: number) => {
     if (idx === selectedIdx || tryingOn) return;
+    triggerHaptic.selection();
     setSelectedIdx(idx);
     setTryingOn(true);
     setTryOnBroken(false);
@@ -226,21 +266,20 @@ export default function ResultsScreen() {
       setTryOnUrl(url);
     } catch (e) {
       console.error('[PeachMatch] shade re-render failed:', e);
-      // keep the previous try-on image; the shade card still updates
     } finally {
       setTryingOn(false);
     }
   };
 
   const shareResult = async () => {
+    triggerHaptic.medium();
     const msg =
-      `My Peach Match result: ${current.brand} ${current.line} — shade ${current.name} ` +
-      `(${current.matchPercent}% match). Fitzpatrick ${params.fitzpatrick}. ` +
-      `Foundation shades matched to YOUR skin.`;
+      `My Peach Match: ${current.brand} ${current.line} â€” shade ${current.name} ` +
+      `(${current.matchPercent}% match). Foundation that actually matches deep skin!`;
     try {
       await Share.share({ message: msg });
     } catch {
-      // user dismissed — nothing to do
+      // dismiss
     }
   };
 
@@ -248,7 +287,13 @@ export default function ResultsScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <FadeIn>
-          <Text style={styles.title}>Your match</Text>
+          <View style={styles.kickerBadge}>
+            <Text style={styles.kicker}>YOUR SHADE MATCH</Text>
+          </View>
+          <Text style={styles.title}>Your Foundation Match</Text>
+          <Text style={styles.subTitleExplain}>
+            Real foundation bottles you can buy in stores, matched to your exact skin tone.
+          </Text>
           <View style={styles.badgeRow}>
             {fitzLabel ? (
               <View style={styles.badge}>
@@ -265,15 +310,15 @@ export default function ResultsScreen() {
 
         {!mock && faceQuality < 60 ? (
           <View style={styles.warnCard}>
-            <Text style={styles.warnTitle}>Lighting wasn’t ideal</Text>
+            <Text style={styles.warnTitle}>Photo lighting tip</Text>
             <Text style={styles.warnText}>
-              The photo quality scored {faceQuality}/100 — your match may be off. Retake facing a
-              window, no flash, for a sharper result.
+              Your photo had a few shadows. For the most accurate result next time,
+              take it facing a window in daylight without flash.
             </Text>
           </View>
         ) : null}
 
-        {/* HERO — the before/after try-on is the showcase, not a mid-page card */}
+        {/* HERO: Before / After Try-On Canvas */}
         <View style={styles.heroShadow}>
           <View
             style={styles.photoWrap}
@@ -283,130 +328,166 @@ export default function ResultsScreen() {
             }}
             {...panResponder.panHandlers}
           >
+            {/* Before: always the original uploaded photo, no fallback */}
             <Image
-              source={{ uri: displayUri }}
+              source={activeBeforeUri ? { uri: activeBeforeUri } : undefined}
               style={styles.photo}
-              onError={() => setBeforeBroken(true)}
             />
             <View style={[styles.afterClip, { width: `${slider * 100}%` }]}>
               <Image
                 source={{ uri: tryOnUrl }}
                 style={[styles.photo, { width: photoW || undefined }]}
-                onError={() => setTryOnBroken(true)}
+                onError={() => {
+                  setTryOnBroken(true);
+                  if (tryOnUrl !== activeBeforeUri) {
+                    setTryOnUrl(activeBeforeUri);
+                  }
+                }}
               />
             </View>
+
+            {/* Slider Dividing Hairline */}
             <View style={[styles.sliderLine, { left: `${slider * 100}%` }]} pointerEvents="none" />
-            <View style={[styles.sliderHandle, { left: `${slider * 100}%` }]} pointerEvents="none">
-              <Text style={styles.sliderHandleText}>‹›</Text>
-            </View>
-            <View style={styles.sliderTagL} pointerEvents="none">
+
+            {/* Tactile Luxury Slider Handle */}
+            <Animated.View
+              style={[
+                styles.sliderHandle,
+                {
+                  left: `${slider * 100}%`,
+                  transform: [{ scale: thumbScale }],
+                },
+              ]}
+              pointerEvents="none"
+            >
+              <View style={styles.handleArrowsRow}>
+                <Text style={styles.handleArrow}>‹</Text>
+                <View style={styles.handleGripLine} />
+                <View style={styles.handleGripLine} />
+                <Text style={styles.handleArrow}>›</Text>
+              </View>
+            </Animated.View>
+
+            {/* Frosted Glass Tags */}
+            <BlurView intensity={65} tint="dark" style={styles.sliderTagL} pointerEvents="none">
               <View style={styles.tagDotGold} />
-              <Text style={styles.sliderTagText}>Matched Shade</Text>
-            </View>
-            <View style={styles.sliderTagR} pointerEvents="none">
+              <Text style={styles.sliderTagText}>With Foundation</Text>
+            </BlurView>
+            <BlurView intensity={65} tint="dark" style={styles.sliderTagR} pointerEvents="none">
               <View style={styles.tagDotNeutral} />
-              <Text style={styles.sliderTagText}>Bare Skin</Text>
-            </View>
+              <Text style={styles.sliderTagText}>Your Photo</Text>
+            </BlurView>
+
             {tryingOn ? (
-              <View style={styles.loadingOverlay}>
-                <ActivityIndicator size="large" color={colors.gold} />
-              </View>
-            ) : null}
-            {tryOnBroken && !tryingOn ? (
-              <View style={styles.loadingOverlay}>
-                <Text style={styles.warnText}>
-                  The try-on preview couldn’t load — your match below is still exact.
-                </Text>
-              </View>
-            ) : null}
-            {beforeBroken ? (
-              <View
-                style={[styles.beforeNote, { width: `${(1 - slider) * 100}%` }]}
-                pointerEvents="none"
-              >
-                <Text style={styles.warnText}>
-                  Your original photo couldn’t be displayed here — the other side is your real
-                  try-on render.
-                </Text>
-              </View>
+              <BlurView intensity={70} tint="dark" style={styles.loadingOverlay}>
+                <View style={styles.loadingBox}>
+                  <ActivityIndicator size="small" color={colors.gold} />
+                  <Text style={styles.loadingText}>Applying {matches[selectedIdx]?.name}...</Text>
+                </View>
+              </BlurView>
             ) : null}
           </View>
         </View>
+
         <Text style={styles.mockNote}>
-          Bare skin on one side, your shade on you on the other — drag the gold handle.
-        </Text>
-        {mock ? (
-          <Text style={styles.mockNote}>
-            Demo mode — with a YouCam API key this shows the real virtual try-on.
-          </Text>
-        ) : null}
-        <Text style={styles.mockNote}>
-          Blend check: when you buy it, stripe the shade at your jawline — the right one
-          disappears into your neck.
+          Drag the gold handle to see how the foundation looks on your face.
         </Text>
 
-        {/* iOS-style segmented control */}
-        <View style={styles.segment}>
-          {TABS.map((t) => (
-            <TouchableOpacity
-              key={t.key}
-              style={[styles.segBtn, tab === t.key && styles.segBtnActive]}
-              activeOpacity={0.85}
-              onPress={() => setTab(t.key)}
-            >
-              <Text style={[styles.segText, tab === t.key && styles.segTextActive]}>
-                {t.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+        {/* Apple-style Animated Segmented Control */}
+        <View
+          style={styles.segment}
+          onLayout={(e) => setSegmentWidth(e.nativeEvent.layout.width)}
+        >
+          {segmentWidth > 0 ? (
+            <Animated.View
+              style={[
+                styles.slidingPill,
+                {
+                  width: (segmentWidth - 8) / TABS.length,
+                  transform: [{ translateX: tabTranslateX }],
+                },
+              ]}
+            />
+          ) : null}
+          {TABS.map((t) => {
+            const active = tab === t.key;
+            return (
+              <TouchableOpacity
+                key={t.key}
+                style={styles.segBtn}
+                activeOpacity={0.85}
+                onPress={() => {
+                  triggerHaptic.selection();
+                  setTab(t.key);
+                }}
+              >
+                <Text style={[styles.segText, active && styles.segTextActive]}>
+                  {t.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {tab === 'match' ? (
           <>
             {matches[0].matchPercent < 75 ? (
               <View style={styles.warnCard}>
-                <Text style={styles.warnTitle}>No perfect match in our catalog</Text>
+                <Text style={styles.warnTitle}>Good news — these are the closest shades for you</Text>
                 <Text style={styles.warnText}>
-                  Our {SHADES.length} shades didn’t nail it this time — these are the closest we
-                  found. We’re adding brands every week; check back soon.
+                  Our {SHADES.length} shade database didn't find a 90%+ match today — these are the
+                  closest formulas we have. We add new shades every week!
                 </Text>
               </View>
             ) : null}
 
+            {/* Clear Product Explainer Banner */}
+            <FadeIn delay={40}>
+              <View style={styles.productBanner}>
+                <Text style={styles.productBannerKicker}>RECOMMENDED FOUNDATION BOTTLE</Text>
+                <Text style={styles.productBannerSub}>
+                  This is the exact brand, line, and shade number to ask for at beauty counters or order online:
+                </Text>
+              </View>
+            </FadeIn>
+
+            {/* Circular Match Gauge + Primary Card */}
             <FadeIn delay={60}>
               <View style={styles.matchRow}>
-                <View style={styles.ring}>
-                  <Text style={styles.ringPct}>{current.matchPercent}%</Text>
-                  <Text style={styles.ringCap}>MATCH</Text>
-                </View>
+                <MatchGauge percent={current.matchPercent} />
                 <View style={styles.matchCardWrap}>
                   <ShadeCard shade={current} large />
                 </View>
               </View>
             </FadeIn>
 
+            {/* Match Percentage Plain English Explainer */}
+            <View style={styles.matchScoreExplain}>
+              <Text style={styles.matchScoreExplainText}>
+                💡 <Text style={{ fontFamily: fonts.bodyBold, color: colors.goldSoft }}>What does {current.matchPercent}% match mean?</Text> It means this bottle's depth and warmth are a {current.matchPercent}% match to your skin. When blended at your jawline, the makeup disappears into your neck without looking grey, ashy, or chalky.
+              </Text>
+            </View>
+
             {explanation && undertone ? (
               <FadeIn delay={120}>
                 <View style={[styles.card, styles.cardSpaced]}>
-                  <Text style={styles.cardTitle}>Why this match</Text>
+                  <Text style={styles.cardTitle}>Why this bottle fits your skin</Text>
                   <View style={styles.whyRow}>
-                    <Text style={styles.whyLabel}>Depth</Text>
+                    <Text style={styles.whyLabel}>Skin depth</Text>
                     <View style={styles.whyBar}>
                       <View style={[styles.whyFill, { width: `${explanation.depthScore}%` }]} />
                     </View>
-                    <Text style={styles.whyValue}>{explanation.depthScore}%</Text>
+                    <Text style={styles.whyValue}>{explanation.depthScore}% match</Text>
                   </View>
                   <View style={styles.whyRow}>
-                    <Text style={styles.whyLabel}>Undertone</Text>
+                    <Text style={styles.whyLabel}>Skin warmth</Text>
                     <Text style={styles.whyValue}>
-                      {explanation.undertoneAligned ? '✓' : '≈'} {explanation.undertonePair}
-                      {undertone ? ` · hue ${undertone.hueAngle}°` : ''}
+                      {explanation.undertoneAligned ? '✓ Perfect match' : '≈ Very close'} ({undertone.label})
                     </Text>
                   </View>
-                  <Text style={styles.fine}>{undertone.tip}</Text>
+                  <Text style={styles.undertoneTip}>{undertone.tip}</Text>
                   <Text style={styles.fine}>
-                    Match score blends CIELAB depth closeness (ΔE) with undertone alignment — the
-                    same color space the cosmetics labs use.
+                    A great foundation matches both your skin depth and its warm/cool undertone — so it blends at your jawline and never looks grey, ashy, or orange.
                   </Text>
                 </View>
               </FadeIn>
@@ -415,16 +496,15 @@ export default function ResultsScreen() {
             {concealer ? (
               <FadeIn delay={180}>
                 <View style={[styles.card, styles.cardSpaced]}>
-                  <Text style={styles.cardTitle}>Complete the base</Text>
+                  <Text style={styles.cardTitle}>A concealer that goes with it</Text>
                   <View style={styles.lipRow}>
                     <View style={[styles.lipSwatch, { backgroundColor: concealer.hex }]} />
                     <View style={styles.lipText}>
                       <Text style={styles.lipName}>
-                        Concealer: {concealer.brand} {concealer.name}
+                        {concealer.brand} — {concealer.name}
                       </Text>
                       <Text style={styles.lipNote}>
-                        Makeup-artist rule: same family, a few steps lighter to brighten — this is
-                        the closest in our catalog.
+                        Pro tip: Pick a concealer 1–2 shades lighter than your foundation to brighten under your eyes without looking chalky.
                       </Text>
                     </View>
                   </View>
@@ -432,49 +512,57 @@ export default function ResultsScreen() {
               </FadeIn>
             ) : null}
 
-            <Text style={styles.sectionTitle}>Also close</Text>
+            <Text style={styles.sectionTitle}>Other foundation bottles you can buy</Text>
+            <Text style={styles.sectionSubtitle}>
+              Tap any bottle below to preview how it looks on your face with the slider above:
+            </Text>
             <View style={styles.chips}>
-              {matches.map((m, i) => (
-                <TouchableOpacity
-                  key={m.id}
-                  style={[styles.chip, i === selectedIdx && styles.chipSelected]}
-                  activeOpacity={0.8}
-                  onPress={() => selectShade(i)}
-                >
-                  <View style={[styles.chipSwatch, { backgroundColor: m.hex }]} />
-                  <Text style={styles.chipText}>
-                    {m.brand} {m.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {matches.map((m, i) => {
+                const isSelected = i === selectedIdx;
+                return (
+                  <TouchableOpacity
+                    key={m.id}
+                    style={[styles.chip, isSelected && styles.chipSelected]}
+                    activeOpacity={0.8}
+                    onPress={() => selectShade(i)}
+                  >
+                    <View style={[styles.chipSwatch, { backgroundColor: m.hex }]} />
+                    <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
+                      {m.brand} · Shade {m.name}
+                    </Text>
+                    {isSelected ? <Text style={styles.chipCheck}> ✓</Text> : null}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
+            {/* Feedback Interaction Card */}
             <View style={[styles.card, styles.cardSpaced]}>
               {feedback === null ? (
                 <>
-                  <Text style={styles.cardTitle}>Was this your shade?</Text>
+                  <Text style={styles.cardTitle}>Does this foundation shade look right on you?</Text>
                   <View style={styles.feedbackRow}>
                     <TouchableOpacity
                       style={[styles.feedbackBtn, styles.feedbackYes]}
                       activeOpacity={0.85}
                       onPress={() => giveFeedback(true)}
                     >
-                      <Text style={styles.feedbackYesText}>Yes, that’s me</Text>
+                      <Text style={styles.feedbackYesText}>Yes, that's me</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.feedbackBtn, styles.feedbackNo]}
                       activeOpacity={0.85}
                       onPress={() => giveFeedback(false)}
                     >
-                      <Text style={styles.feedbackNoText}>Not quite</Text>
+                      <Text style={styles.feedbackNoText}>Doesn't look right</Text>
                     </TouchableOpacity>
                   </View>
                 </>
               ) : (
                 <Text style={styles.feedbackThanks}>
                   {feedback === 'yes'
-                    ? 'Love it. That confirmation makes the next match smarter.'
-                    : 'Noted — honest misses are how this gets better. Try an alternate shade above.'}
+                    ? '✨ Great! We saved this shade to your phone so you can check it in-store.'
+                    : 'No problem! Tap one of the other shades above to see how they look on your face.'}
                 </Text>
               )}
             </View>
@@ -483,22 +571,22 @@ export default function ResultsScreen() {
 
         {tab === 'skin' ? (
           <>
-            <Text style={styles.sectionTitle}>Your skin, by the numbers</Text>
+            <Text style={styles.sectionTitle}>Your skin check</Text>
             <View style={styles.card}>
               {fitzLabel ? (
                 <View style={styles.sumRow}>
-                  <Text style={styles.sumLabel}>Fitzpatrick</Text>
+                  <Text style={styles.sumLabel}>Your skin tone</Text>
                   <Text style={styles.sumValue}>{fitzLabel}</Text>
                 </View>
               ) : null}
               {undertone ? (
                 <View style={styles.sumRow}>
-                  <Text style={styles.sumLabel}>Undertone</Text>
+                  <Text style={styles.sumLabel}>Warm / cool hint</Text>
                   <Text style={styles.sumValue}>{undertone.label}</Text>
                 </View>
               ) : null}
               <View style={styles.sumRow}>
-                <Text style={styles.sumLabel}>Photo quality</Text>
+                <Text style={styles.sumLabel}>Photo clarity</Text>
                 <Text style={styles.sumValue}>{faceQuality}/100</Text>
               </View>
             </View>
@@ -509,46 +597,44 @@ export default function ResultsScreen() {
                   <View style={styles.scoreHead}>
                     <View>
                       <Text style={styles.scoreBig}>{scores.overall}</Text>
-                      <Text style={styles.scoreCap}>Overall skin score / 100</Text>
+                      <Text style={styles.scoreCap}>Overall skin score (out of 100)</Text>
                     </View>
                     {scores.skinAge ? (
                       <View style={styles.ageChip}>
-                        <Text style={styles.ageChipText}>Skin age {scores.skinAge}</Text>
+                        <Text style={styles.ageChipText}>Skin looks ~{scores.skinAge} yrs</Text>
                       </View>
                     ) : null}
                   </View>
                 ) : null}
-                <ScoreBar label="Radiance" value={scores.radiance} />
-                <ScoreBar label="Moisture" value={scores.moisture} />
+                <ScoreBar label="Glow" value={scores.radiance} hint="How bright and healthy your skin looks." />
+                <ScoreBar label="Moisture" value={scores.moisture} hint="How well your skin holds water." />
                 <ScoreBar
-                  label="Clarity"
+                  label="Clear skin"
                   value={scores.acne}
-                  hint="Higher means fewer visible blemishes."
+                  hint="Higher = fewer visible spots or blemishes."
                 />
                 <ScoreBar
                   label="Oil balance"
                   value={100 - scores.oiliness}
-                  hint="How balanced your skin’s oil is."
+                  hint="Not too oily, not too dry."
                 />
-                <ScoreBar label="Pore clarity" value={scores.pore} />
+                <ScoreBar label="Pores" value={scores.pore} hint="How visible your pores appear." />
                 <ScoreBar
                   label="Smoothness"
                   value={scores.wrinkle}
-                  hint="Higher means fewer visible lines."
+                  hint="How smooth and even your skin texture is."
                 />
-                <ScoreBar label="Firmness" value={scores.firmness} />
-                <Text style={styles.fine}>Estimates from AI analysis, not medical advice.</Text>
+                <ScoreBar label="Firmness" value={scores.firmness} hint="How firm and lifted your skin looks." />
+                <Text style={styles.fine}>These are quick AI readings to guide your skincare — not a medical diagnosis.</Text>
                 <Text style={styles.fine}>
-                  Skin tone can shift up to 4 shades across the year — re-scan each season to keep
-                  your match true.
+                  Your skin can look slightly darker in sunny months and lighter in cold or rainy seasons. Check your shade again when the weather changes.
                 </Text>
               </View>
             ) : (
               <View style={[styles.card, styles.cardSpaced]}>
-                <Text style={styles.cardTitle}>Skin scores unavailable for this photo</Text>
+                <Text style={styles.cardTitle}>Skin check needs a closer photo</Text>
                 <Text style={styles.storeDetail}>
-                  The detailed analysis needs your face to fill more of the frame. Your shade
-                  match is unaffected — retake closer, facing a window, to unlock the full report.
+                  For the skin details, try taking the photo a bit closer to your face next time. Your foundation shade match is still ready to use!
                 </Text>
               </View>
             )}
@@ -556,7 +642,7 @@ export default function ResultsScreen() {
             {undertone ? (
               <>
                 <Text style={styles.sectionTitle}>
-                  Pairs with your {undertone.label.toLowerCase()} undertone
+                  Lip colours that suit you
                 </Text>
                 <View style={styles.card}>
                   {lipPairingsFor(undertone.undertone).map((lip) => (
@@ -578,45 +664,64 @@ export default function ResultsScreen() {
 
         {tab === 'buy' ? (
           <>
-            <Text style={styles.sectionTitle}>Your Shade Passport</Text>
+            <Text style={styles.sectionTitle}>Your saved foundation bottle</Text>
+            <Text style={styles.sectionSubtitle}>
+              Show this screen to any beauty counter assistant or stall seller:
+            </Text>
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>✓ Saved to your Shade Passport</Text>
+              <View style={styles.passportHeader}>
+                <View style={styles.passportDot} />
+                <Text style={styles.cardTitle}>Saved on this phone</Text>
+              </View>
               <View style={styles.passportRow}>
                 <View style={[styles.passportSwatch, { backgroundColor: matches[0].hex }]} />
                 <View style={styles.lipText}>
                   <Text style={styles.lipName}>
-                    {matches[0].brand} {matches[0].line} — {matches[0].name}
+                    {matches[0].brand} {matches[0].line} — Shade {matches[0].name}
                   </Text>
                   <Text style={styles.lipNote}>
-                    {matches[0].matchPercent}% match · kept on this device · find it on your home
-                    screen anytime
+                    {matches[0].matchPercent}% match score · Saved on this phone · Check it anytime in beauty shops
                   </Text>
                 </View>
               </View>
             </View>
 
-            <Text style={styles.sectionTitle}>Get this shade</Text>
-            <View style={styles.card}>
-              <Text style={styles.storeName}>{STORE_NAME} — our own store</Text>
-              <Text style={styles.storeDetail}>
-                Coming soon: order your exact shade directly from us, right inside Peach Match —
-                matched, tried on, and delivered by the same people who built your matcher. Until
-                we open, find your shade below.
+            {/* Modern Peach Cosmetics Flagship Boutique Preview */}
+            <View style={[styles.card, styles.peachFlagshipCard]}>
+              <View style={styles.peachKickerRow}>
+                <Text style={styles.peachCrown}>✦</Text>
+                <Text style={styles.peachKicker}>FLAGSHIP BOUTIQUE</Text>
+                <View style={styles.peachSoonPill}>
+                  <Text style={styles.peachSoonPillText}>OPENING SOON</Text>
+                </View>
+              </View>
+              <Text style={styles.peachFlagshipTitle}>{STORE_NAME}</Text>
+              <Text style={styles.peachFlagshipDesc}>
+                Order your exact shade directly from us with 100% jawline match guarantee. Free shade swap if it doesn't melt into your skin seamlessly.
               </Text>
-              <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/store')}>
-                <Text style={styles.storeLink}>Peek at what’s coming →</Text>
+              <TouchableOpacity
+                style={styles.peachBoutiqueBtn}
+                activeOpacity={0.85}
+                onPress={() => {
+                  triggerHaptic.selection();
+                  router.push('/store');
+                }}
+              >
+                <Text style={styles.peachBoutiqueBtnText}>Explore Boutique Shelves & VIP Waitlist →</Text>
               </TouchableOpacity>
+            </View>
 
-              <Text style={styles.divider}>Find your shade now</Text>
+            <Text style={styles.sectionTitle}>Available now in stores</Text>
+            <View style={styles.card}>
               <TouchableOpacity style={styles.store} onPress={() => searchShade('jumia')}>
-                <Text style={styles.storeName}>Search this shade on Jumia Ghana →</Text>
+                <Text style={styles.storeName}>Find this shade on Jumia Ghana →</Text>
                 <Text style={styles.storeDetail}>
                   {current.brand} {current.line} — shade {current.name}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.store} onPress={() => searchShade('google')}>
-                <Text style={styles.storeName}>Search this shade on Google →</Text>
-                <Text style={styles.storeDetail}>Compare prices across sellers</Text>
+                <Text style={styles.storeName}>Search prices on Google →</Text>
+                <Text style={styles.storeDetail}>Compare prices across local beauty stores</Text>
               </TouchableOpacity>
               {STORES.slice(1).map((s) => (
                 <View key={s.name} style={styles.store}>
@@ -624,7 +729,6 @@ export default function ResultsScreen() {
                   <Text style={styles.storeDetail}>{s.detail}</Text>
                 </View>
               ))}
-              <Text style={styles.fine}>Physical store locations are demo data.</Text>
             </View>
           </>
         ) : null}
@@ -632,42 +736,45 @@ export default function ResultsScreen() {
         <TouchableOpacity
           style={styles.linkBtn}
           activeOpacity={0.8}
-          onPress={() => router.replace('/')}
+          onPress={() => {
+            triggerHaptic.light();
+            router.replace('/');
+          }}
         >
-          <Text style={styles.linkText}>← Start over</Text>
+          <Text style={styles.linkText}>← Start over with a new photo</Text>
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Sticky bottom dock — the shade + share, always within thumb reach */}
-      <View style={styles.dock}>
+      {/* Sticky Bottom Frosted Glass Dock */}
+      <BlurView intensity={85} tint="dark" style={styles.dock}>
         <View style={[styles.dockSwatch, { backgroundColor: current.hex }]} />
         <View style={styles.dockText}>
           <Text style={styles.dockName} numberOfLines={1}>
-            {current.name}
+            Shade: {current.name}
           </Text>
           <Text style={styles.dockBrand} numberOfLines={1}>
             {current.brand} · {current.line}
           </Text>
         </View>
         <TouchableOpacity style={styles.dockBtn} activeOpacity={0.85} onPress={shareResult}>
-          <Text style={styles.dockBtnText}>Share Passport</Text>
+          <Text style={styles.dockBtnText}>Share My Shade</Text>
         </TouchableOpacity>
-      </View>
+      </BlurView>
 
       <CoachTip
         tourKey="results"
         steps={[
           {
-            title: 'Drag the slider',
-            body: 'On your photo, drag the gold handle to compare bare skin against your shade. Tapping a shade under "Also close" re-renders the try-on.',
+            title: 'Slide to compare',
+            body: 'Drag the gold circle left and right to see bare skin vs your new foundation. Tap any shade below to try it on your face!',
           },
           {
-            title: 'Your match — and why',
-            body: 'The ring is your match score. "Why this match" shows the working: depth closeness plus undertone alignment — the two things shops never tell you.',
+            title: 'Your match score',
+            body: "The gold circle shows how close this shade is to your skin tone and undertone so it won't look grey or ashy.",
           },
           {
-            title: 'Three tabs, one dock',
-            body: 'Skin Health holds your full report; Where to Buy starts with your Shade Passport. The dock at the bottom shares your passport anytime.',
+            title: 'Save your shade',
+            body: 'Tap "Share My Shade" at the bottom anytime to save or send your shade details before you head to the beauty store.',
           },
         ]}
       />
@@ -677,44 +784,81 @@ export default function ResultsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: 24, paddingTop: 32, paddingBottom: 32 },
+  scroll: { padding: 24, paddingTop: 28, paddingBottom: 110 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  title: { color: colors.cream, fontSize: 32, fontWeight: '800' },
-  sub: { color: colors.muted, fontSize: 15, marginTop: 8 },
+  kickerBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(212, 162, 78, 0.12)',
+    borderRadius: radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginBottom: 8,
+  },
+  kicker: {
+    color: colors.gold,
+    fontSize: 10,
+    fontFamily: fonts.bodyBold,
+    letterSpacing: 2,
+  },
+  title: {
+    color: colors.cream,
+    fontSize: 32,
+    fontFamily: fonts.display,
+  },
+  sub: {
+    color: colors.muted,
+    fontSize: 14,
+    fontFamily: fonts.body,
+    marginTop: 8,
+  },
   badgeRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
   badge: {
     backgroundColor: colors.surfaceLight,
-    borderRadius: radius.sm,
-    paddingHorizontal: 12,
+    borderRadius: radius.full,
+    paddingHorizontal: 14,
     paddingVertical: 6,
-  },
-  badgeGold: { backgroundColor: '#3a2c14' },
-  badgeText: { color: colors.goldSoft, fontSize: 13, fontWeight: '700' },
-  warnCard: {
-    backgroundColor: '#3a2413',
-    borderRadius: radius.md,
-    padding: 14,
-    marginTop: 16,
     borderWidth: 1,
-    borderColor: '#7a5a2a',
+    borderColor: 'rgba(212, 162, 78, 0.15)',
   },
-  warnTitle: { color: '#f0c46c', fontSize: 14, fontWeight: '800' },
-  warnText: { color: colors.cream, fontSize: 13, lineHeight: 19, marginTop: 4 },
+  badgeGold: {
+    backgroundColor: 'rgba(212, 162, 78, 0.18)',
+    borderColor: 'rgba(212, 162, 78, 0.35)',
+  },
+  badgeText: {
+    color: colors.goldSoft,
+    fontSize: 12,
+    fontFamily: fonts.bodyBold,
+  },
+  warnCard: {
+    backgroundColor: 'rgba(43, 26, 12, 0.85)',
+    borderRadius: radius.md,
+    padding: 16,
+    marginTop: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(212, 162, 78, 0.35)',
+  },
+  warnTitle: {
+    color: colors.goldSoft,
+    fontSize: 14,
+    fontFamily: fonts.bodyBold,
+  },
+  warnText: {
+    color: colors.creamSoft,
+    fontSize: 13,
+    fontFamily: fonts.body,
+    lineHeight: 19,
+    marginTop: 4,
+  },
   heroShadow: {
-    marginTop: 20,
+    marginTop: 22,
     borderRadius: 24,
-    backgroundColor: colors.background,
-    shadowColor: '#000',
-    shadowOpacity: 0.45,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 12,
+    ...shadows.card,
   },
   photoWrap: {
     borderRadius: 24,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(212, 162, 78, 0.25)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(212, 162, 78, 0.3)',
   },
   photo: { width: '100%', aspectRatio: 3 / 4, backgroundColor: colors.surface },
   afterClip: { position: 'absolute', top: 0, bottom: 0, left: 0, overflow: 'hidden' },
@@ -722,57 +866,97 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     bottom: 0,
-    width: 2,
-    marginLeft: -1,
+    width: 2.5,
+    marginLeft: -1.25,
     backgroundColor: colors.gold,
   },
   sliderHandle: {
     position: 'absolute',
     top: '50%',
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    marginLeft: -19,
-    marginTop: -19,
+    width: 52,
+    height: 36,
+    borderRadius: radius.full,
+    marginLeft: -26,
+    marginTop: -18,
     backgroundColor: colors.gold,
-    borderWidth: 2,
-    borderColor: '#1a120b',
+    borderWidth: 2.5,
+    borderColor: '#150d07',
     alignItems: 'center',
     justifyContent: 'center',
+    ...shadows.glowGold,
   },
-  sliderHandleText: { color: '#1a120b', fontSize: 15, fontWeight: '800' },
+  handleArrowsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  handleArrow: {
+    color: '#150d07',
+    fontSize: 14,
+    fontFamily: fonts.bodyBold,
+    lineHeight: 16,
+  },
+  handleGripLine: {
+    width: 1.5,
+    height: 12,
+    borderRadius: 1,
+    backgroundColor: '#150d07',
+  },
   sliderTagL: {
     position: 'absolute',
-    left: 10,
-    bottom: 10,
+    left: 12,
+    bottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(26,18,11,0.75)',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    borderRadius: radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 162, 78, 0.25)',
+    overflow: 'hidden',
   },
   sliderTagR: {
     position: 'absolute',
-    right: 10,
-    bottom: 10,
+    right: 12,
+    bottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(26,18,11,0.75)',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    borderRadius: radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    overflow: 'hidden',
   },
-  tagDotGold: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.gold },
-  tagDotNeutral: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#d8cfc0' },
-  sliderTagText: { color: colors.cream, fontSize: 11, fontWeight: '700' },
+  tagDotGold: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.gold },
+  tagDotNeutral: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#e2d7c9' },
+  sliderTagText: {
+    color: colors.cream,
+    fontSize: 11,
+    fontFamily: fonts.bodyBold,
+  },
   loadingOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(26,18,11,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  loadingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(21, 13, 7, 0.85)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 162, 78, 0.4)',
+  },
+  loadingText: {
+    color: colors.cream,
+    fontSize: 13,
+    fontFamily: fonts.bodySemi,
   },
   beforeNote: {
     position: 'absolute',
@@ -783,117 +967,362 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 12,
   },
-  mockNote: { color: colors.muted, fontSize: 12, marginTop: 8, fontStyle: 'italic' },
+  mockNote: {
+    color: colors.muted,
+    fontSize: 12,
+    fontFamily: fonts.body,
+    marginTop: 10,
+    textAlign: 'center',
+  },
   segment: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
-    borderRadius: 999,
+    borderRadius: radius.full,
     padding: 4,
-    marginTop: 20,
+    marginTop: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 162, 78, 0.15)',
+    position: 'relative',
   },
-  segBtn: { flex: 1, paddingVertical: 9, borderRadius: 999, alignItems: 'center' },
-  segBtnActive: { backgroundColor: colors.gold },
-  segText: { color: colors.muted, fontSize: 13, fontWeight: '700' },
-  segTextActive: { color: '#1a120b' },
+  slidingPill: {
+    position: 'absolute',
+    top: 4,
+    bottom: 4,
+    left: 4,
+    backgroundColor: colors.gold,
+    borderRadius: radius.full,
+    ...shadows.subtle,
+  },
+  segBtn: { flex: 1, paddingVertical: 10, borderRadius: radius.full, alignItems: 'center' },
+  segBtnActive: {},
+  segText: { color: colors.muted, fontSize: 13, fontFamily: fonts.bodyBold },
+  segTextActive: { color: '#150d07' },
+  chipSelected: {
+    borderColor: colors.gold,
+    backgroundColor: '#26170c',
+    ...shadows.subtle,
+  },
+  chipTextSelected: {
+    color: colors.goldSoft,
+  },
+  chipCheck: {
+    color: colors.gold,
+    fontSize: 11,
+    fontFamily: fonts.bodyBold,
+  },
+  peachFlagshipCard: {
+    marginTop: 16,
+    backgroundColor: 'rgba(38, 23, 12, 0.85)',
+    borderColor: 'rgba(212, 162, 78, 0.4)',
+    borderWidth: 1.5,
+    ...shadows.card,
+  },
+  peachKickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  peachCrown: {
+    color: colors.gold,
+    fontSize: 12,
+  },
+  peachKicker: {
+    color: colors.gold,
+    fontSize: 10,
+    fontFamily: fonts.bodyBold,
+    letterSpacing: 2,
+    flex: 1,
+  },
+  peachSoonPill: {
+    backgroundColor: 'rgba(212, 162, 78, 0.2)',
+    borderRadius: radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 162, 78, 0.35)',
+  },
+  peachSoonPillText: {
+    color: colors.goldSoft,
+    fontSize: 9,
+    fontFamily: fonts.bodyBold,
+    letterSpacing: 1,
+  },
+  peachFlagshipTitle: {
+    color: colors.cream,
+    fontSize: 22,
+    fontFamily: fonts.displaySemi,
+    marginBottom: 6,
+  },
+  peachFlagshipDesc: {
+    color: colors.creamSoft,
+    fontSize: 13,
+    fontFamily: fonts.body,
+    lineHeight: 19,
+    marginBottom: 14,
+  },
+  peachBoutiqueBtn: {
+    backgroundColor: colors.gold,
+    borderRadius: radius.md,
+    paddingVertical: 13,
+    alignItems: 'center',
+    ...shadows.glowGold,
+  },
+  peachBoutiqueBtnText: {
+    color: '#150d07',
+    fontSize: 13,
+    fontFamily: fonts.bodyBold,
+  },
   sectionTitle: {
     color: colors.cream,
-    fontSize: 18,
-    fontWeight: '700',
-    marginTop: 28,
+    fontSize: 20,
+    fontFamily: fonts.displaySemi,
+    marginTop: 30,
+    marginBottom: 6,
+  },
+  sectionSubtitle: {
+    color: colors.muted,
+    fontSize: 13,
+    fontFamily: fonts.body,
+    marginBottom: 14,
+    lineHeight: 18,
+  },
+  subTitleExplain: {
+    color: colors.creamSoft,
+    fontSize: 13,
+    fontFamily: fonts.body,
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  productBanner: {
+    marginTop: 18,
+    marginBottom: 6,
+  },
+  productBannerKicker: {
+    color: colors.gold,
+    fontSize: 10,
+    fontFamily: fonts.bodyBold,
+    letterSpacing: 1.5,
+    marginBottom: 4,
+  },
+  productBannerSub: {
+    color: colors.creamSoft,
+    fontSize: 13,
+    fontFamily: fonts.body,
+    lineHeight: 18,
+  },
+  matchScoreExplain: {
+    backgroundColor: 'rgba(212, 162, 78, 0.08)',
+    borderRadius: radius.md,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 162, 78, 0.2)',
+  },
+  matchScoreExplainText: {
+    color: colors.creamSoft,
+    fontSize: 12,
+    fontFamily: fonts.body,
+    lineHeight: 17,
+  },
+  matchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 24,
+  },
+  matchCardWrap: { flex: 1 },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 162, 78, 0.15)',
+  },
+  cardSpaced: { marginTop: 18 },
+  cardTitle: {
+    color: colors.cream,
+    fontSize: 16,
+    fontFamily: fonts.bodyBold,
     marginBottom: 12,
   },
-  matchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 24 },
-  ring: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    borderWidth: 3,
-    borderColor: colors.gold,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+  whyRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  whyLabel: {
+    color: colors.muted,
+    fontSize: 13,
+    fontFamily: fonts.bodySemi,
+    width: 82,
   },
-  ringPct: { color: colors.cream, fontSize: 22, fontWeight: '800' },
-  ringCap: { color: colors.goldSoft, fontSize: 9, fontWeight: '700', letterSpacing: 1.5 },
-  matchCardWrap: { flex: 1 },
-  card: { backgroundColor: colors.surface, borderRadius: radius.md, padding: 16 },
-  cardSpaced: { marginTop: 16 },
-  cardTitle: { color: colors.cream, fontSize: 16, fontWeight: '800', marginBottom: 12 },
-  whyRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  whyLabel: { color: colors.muted, fontSize: 13, fontWeight: '600', width: 76 },
   whyBar: {
     flex: 1,
-    height: 8,
-    borderRadius: 4,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: colors.surfaceLight,
     overflow: 'hidden',
     marginRight: 10,
   },
-  whyFill: { height: '100%', backgroundColor: colors.gold, borderRadius: 4 },
-  whyValue: { color: colors.cream, fontSize: 13, fontWeight: '700' },
-  fine: { color: colors.goldDim, fontSize: 11, marginTop: 10 },
+  whyFill: { height: '100%', backgroundColor: colors.gold, borderRadius: 3 },
+  whyValue: {
+    color: colors.cream,
+    fontSize: 13,
+    fontFamily: fonts.bodyBold,
+  },
+  undertoneTip: {
+    color: colors.goldSoft,
+    fontSize: 13,
+    fontFamily: fonts.bodyMedium,
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  fine: {
+    color: colors.goldDim,
+    fontSize: 11,
+    fontFamily: fonts.body,
+    marginTop: 8,
+    lineHeight: 16,
+  },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: 'transparent',
+    borderRadius: radius.full,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(212, 162, 78, 0.12)',
   },
-  chipSelected: { borderColor: colors.gold },
-  chipSwatch: { width: 22, height: 22, borderRadius: 11, marginRight: 8 },
-  chipText: { color: colors.cream, fontSize: 13, fontWeight: '600' },
-  lipRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
-  lipSwatch: { width: 30, height: 30, borderRadius: 15, marginRight: 12 },
+  chipSwatch: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  chipText: {
+    color: colors.cream,
+    fontSize: 13,
+    fontFamily: fonts.bodySemi,
+  },
+  lipRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
+  lipSwatch: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
   lipText: { flex: 1 },
-  lipName: { color: colors.cream, fontSize: 14, fontWeight: '700' },
-  lipNote: { color: colors.muted, fontSize: 12, marginTop: 1 },
-  feedbackRow: { flexDirection: 'row', gap: 10 },
-  feedbackBtn: { flex: 1, borderRadius: radius.md, paddingVertical: 12, alignItems: 'center' },
-  feedbackYes: { backgroundColor: colors.gold },
-  feedbackYesText: { color: '#1a120b', fontSize: 14, fontWeight: '800' },
-  feedbackNo: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.goldDim },
-  feedbackNoText: { color: colors.goldSoft, fontSize: 14, fontWeight: '700' },
-  feedbackThanks: { color: colors.cream, fontSize: 14, lineHeight: 20 },
+  lipName: {
+    color: colors.cream,
+    fontSize: 14,
+    fontFamily: fonts.bodyBold,
+  },
+  lipNote: {
+    color: colors.muted,
+    fontSize: 12,
+    fontFamily: fonts.body,
+    marginTop: 2,
+    lineHeight: 17,
+  },
+  feedbackRow: { flexDirection: 'row', gap: 12, marginTop: 4 },
+  feedbackBtn: {
+    flex: 1,
+    borderRadius: radius.md,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  feedbackYes: { backgroundColor: colors.gold, ...shadows.subtle },
+  feedbackYesText: { color: '#150d07', fontSize: 14, fontFamily: fonts.bodyBold },
+  feedbackNo: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 162, 78, 0.35)',
+  },
+  feedbackNoText: { color: colors.goldSoft, fontSize: 14, fontFamily: fonts.bodySemi },
+  feedbackThanks: {
+    color: colors.cream,
+    fontSize: 14,
+    fontFamily: fonts.bodyMedium,
+    lineHeight: 21,
+  },
   sumRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 7,
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(212, 162, 78, 0.08)',
   },
-  sumLabel: { color: colors.muted, fontSize: 13, fontWeight: '600' },
-  sumValue: { color: colors.cream, fontSize: 14, fontWeight: '700' },
+  sumLabel: { color: colors.muted, fontSize: 13, fontFamily: fonts.bodyMedium },
+  sumValue: { color: colors.cream, fontSize: 14, fontFamily: fonts.bodyBold },
   scoreHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
   },
-  scoreBig: { color: colors.gold, fontSize: 40, fontWeight: '800', lineHeight: 42 },
-  scoreCap: { color: colors.muted, fontSize: 12, marginTop: 2 },
+  scoreBig: {
+    color: colors.gold,
+    fontSize: 42,
+    fontFamily: fonts.display,
+    lineHeight: 44,
+  },
+  scoreCap: { color: colors.muted, fontSize: 12, fontFamily: fonts.bodyMedium, marginTop: 2 },
   ageChip: {
-    backgroundColor: colors.surfaceLight,
+    backgroundColor: 'rgba(212, 162, 78, 0.15)',
     borderRadius: radius.sm,
     paddingHorizontal: 10,
     paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 162, 78, 0.25)',
   },
-  ageChipText: { color: colors.goldSoft, fontSize: 13, fontWeight: '700' },
+  ageChipText: { color: colors.goldSoft, fontSize: 12, fontFamily: fonts.bodyBold },
+  passportHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  passportDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.gold,
+    marginRight: 8,
+  },
   passportRow: { flexDirection: 'row', alignItems: 'center' },
-  passportSwatch: { width: 44, height: 44, borderRadius: 22, marginRight: 12 },
-  store: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.surfaceLight },
-  storeName: { color: colors.cream, fontSize: 15, fontWeight: '700' },
-  storeDetail: { color: colors.muted, fontSize: 13, marginTop: 2, lineHeight: 19 },
-  storeLink: { color: colors.goldSoft, fontSize: 14, fontWeight: '700', marginTop: 14 },
-  divider: {
+  passportSwatch: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginRight: 14,
+    borderWidth: 2,
+    borderColor: 'rgba(212, 162, 78, 0.35)',
+  },
+  store: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(212, 162, 78, 0.1)',
+  },
+  storeName: { color: colors.cream, fontSize: 15, fontFamily: fonts.bodyBold },
+  storeDetail: {
     color: colors.muted,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginTop: 20,
-    marginBottom: 2,
+    fontSize: 13,
+    fontFamily: fonts.body,
+    marginTop: 3,
+    lineHeight: 19,
+  },
+  storeLink: {
+    color: colors.goldSoft,
+    fontSize: 14,
+    fontFamily: fonts.bodyBold,
+    marginTop: 14,
+  },
+  divider: {
+    color: colors.goldDim,
+    fontSize: 11,
+    fontFamily: fonts.bodyBold,
+    letterSpacing: 1.5,
+    marginTop: 24,
+    marginBottom: 4,
   },
   cta: {
     backgroundColor: colors.gold,
@@ -902,28 +1331,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 24,
   },
-  ctaText: { color: '#1a120b', fontSize: 16, fontWeight: '800' },
-  linkBtn: { alignItems: 'center', marginTop: 20, paddingVertical: 8 },
-  linkText: { color: colors.goldSoft, fontSize: 15, fontWeight: '600' },
+  ctaText: { color: '#150d07', fontSize: 15, fontFamily: fonts.bodyBold },
+  linkBtn: { alignItems: 'center', marginTop: 24, paddingVertical: 8 },
+  linkText: { color: colors.goldSoft, fontSize: 14, fontFamily: fonts.bodySemi },
   dock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: 'rgba(37, 26, 15, 0.95)',
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     borderTopWidth: 1,
     borderTopColor: 'rgba(212, 162, 78, 0.25)',
   },
-  dockSwatch: { width: 40, height: 40, borderRadius: 20 },
+  dockSwatch: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 2,
+    borderColor: 'rgba(212, 162, 78, 0.4)',
+  },
   dockText: { flex: 1 },
-  dockName: { color: colors.cream, fontSize: 15, fontWeight: '700' },
-  dockBrand: { color: colors.muted, fontSize: 12, marginTop: 1 },
+  dockName: { color: colors.cream, fontSize: 15, fontFamily: fonts.bodyBold },
+  dockBrand: { color: colors.muted, fontSize: 12, fontFamily: fonts.body, marginTop: 1 },
   dockBtn: {
     backgroundColor: colors.gold,
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 11,
+    borderRadius: radius.full,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    ...shadows.glowGold,
   },
-  dockBtnText: { color: '#1a120b', fontSize: 14, fontWeight: '800' },
+  dockBtnText: { color: '#150d07', fontSize: 14, fontFamily: fonts.bodyBold },
 });

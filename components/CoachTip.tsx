@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors, radius } from '../lib/theme';
 import { markTourSeen, tourSeen, TourKey } from '../lib/tour';
@@ -15,7 +15,7 @@ export interface CoachStep {
 export default function CoachTip({ tourKey, steps }: { tourKey: TourKey; steps: CoachStep[] }) {
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
-  const anim = useRef(new Animated.Value(0)).current;
+  const [anim] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     let live = true;

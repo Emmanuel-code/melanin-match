@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../lib/theme';
 
@@ -10,7 +10,7 @@ interface Props {
 
 export default function ScoreBar({ label, value, hint }: Props) {
   const clamped = Math.max(0, Math.min(100, Math.round(value)));
-  const anim = useRef(new Animated.Value(0)).current;
+  const [anim] = useState(() => new Animated.Value(0));
   useEffect(() => {
     const t = Animated.timing(anim, {
       toValue: clamped,

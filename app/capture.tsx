@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import {
@@ -35,12 +36,24 @@ export default function CaptureScreen() {
   const [sampleBusy, setSampleBusy] = useState(false);
 
   // Gallery picks come back as content:// URIs on Android: the pipeline can
-  // READ those, but the results screen's <Image> cannot always DISPLAY them
-  // (the "before" photo failed silently as flat colour — confirmed on
-  // device). Copy every pick into our own cache as a plain file up front;
-  // from there, display is bulletproof.
+  // READ those, but the results screen's <Image> cannot DISPLAY them (the
+  // "before" photo failed as flat colour — confirmed on device, twice: a
+  // plain file copy of the same bytes failed too, so the issue is the
+  // source format/address, not the transport). Transcode every pick to a
+  // plain JPEG in the app cache through the native imaging stack — that
+  // decodes content://, HEIC and WebP sources into a file every view can
+  // show.
   const normalizePhoto = async (uri: string): Promise<string> => {
     if (uri.startsWith('file://')) return uri;
+    try {
+      const out = await ImageManipulator.manipulateAsync(uri, [], {
+        compress: 0.85,
+        format: ImageManipulator.SaveFormat.JPEG,
+      });
+      return out.uri;
+    } catch {
+      // fall through to a plain copy, then to the original URI
+    }
     try {
       const dest = `${FileSystem.cacheDirectory}peach-photo-${Date.now()}.jpg`;
       await FileSystem.copyAsync({ from: uri, to: dest });

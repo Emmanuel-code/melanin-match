@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../lib/theme';
 
@@ -12,7 +12,7 @@ interface Props {
 // Pulsing gold dot for the step that's running right now — the wait should
 // feel alive, not stalled.
 function PulseDot() {
-  const v = useRef(new Animated.Value(0.55)).current;
+  const [v] = useState(() => new Animated.Value(0.55));
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([

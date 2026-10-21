@@ -95,7 +95,10 @@ export default function ResultsScreen() {
   const [photoW, setPhotoW] = useState(0);
   const photoWRef = useRef(0);
   const userTouchedSlider = useRef(false);
-  const panResponder = useRef(
+  /* eslint-disable react-hooks/refs -- PanResponder.create is a one-time
+     factory; the refs it closes over are read only inside gesture
+     callbacks, never during render. */
+  const [panResponder] = useState(() =>
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       // Claim moves only when they're mostly horizontal — vertical swipes
@@ -112,12 +115,14 @@ export default function ResultsScreen() {
         if (w > 0) setSlider(Math.min(1, Math.max(0, e.nativeEvent.locationX / w)));
       },
     }),
-  ).current;
+  );
+  /* eslint-enable react-hooks/refs */
   // The signed try-on URL comes from the in-memory session (set by the
   // analyzing screen) — route params are only a fallback; long signed URLs
   // can be mangled by navigation serialization.
+  const sessionTryOnUrl = getLastResult()?.tryOnUrl;
   const [tryOnUrl, setTryOnUrl] = useState(
-    () => getLastResult()?.tryOnUrl ?? params.tryOnUrl ?? originalUri,
+    () => sessionTryOnUrl ?? params.tryOnUrl ?? originalUri,
   );
   const [tryOnBroken, setTryOnBroken] = useState(false);
   const [beforeBroken, setBeforeBroken] = useState(false);
@@ -145,21 +150,7 @@ export default function ResultsScreen() {
   }, []);
   const mock = isMockMode();
 
-  if (!displayUri || matches.length === 0) {
-    return (
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <View style={styles.center}>
-          <Text style={styles.title}>No results yet</Text>
-          <Text style={styles.sub}>Run the shade finder first.</Text>
-          <TouchableOpacity style={styles.cta} onPress={() => router.replace('/')}>
-            <Text style={styles.ctaText}>Start over</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  const current = matches[selectedIdx];
+  const current = matches[selectedIdx] ?? matches[0];
   const fitzLabel = FITZPATRICK_LABELS[params.fitzpatrick ?? ''] ?? params.fitzpatrick ?? '';
   const skinHex = params.skinHex ?? '';
   const faceQuality = Number(params.faceQuality ?? '100');
@@ -168,7 +159,7 @@ export default function ResultsScreen() {
     [skinHex],
   );
   const explanation = useMemo(
-    () => (skinHex ? explainMatch(skinHex, current) : null),
+    () => (skinHex && current ? explainMatch(skinHex, current) : null),
     [skinHex, current],
   );
   const concealer = useMemo(
@@ -196,6 +187,20 @@ export default function ResultsScreen() {
     // once per results view — the passport tracks the top match
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  if (!displayUri || matches.length === 0 || !current) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <View style={styles.center}>
+          <Text style={styles.title}>No results yet</Text>
+          <Text style={styles.sub}>Run the shade finder first.</Text>
+          <TouchableOpacity style={styles.cta} onPress={() => router.replace('/')}>
+            <Text style={styles.ctaText}>Start over</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const giveFeedback = (good: boolean) => {
     recordMatchFeedback(good);
@@ -260,7 +265,7 @@ export default function ResultsScreen() {
 
         {!mock && faceQuality < 60 ? (
           <View style={styles.warnCard}>
-            <Text style={styles.warnTitle}>Lighting wasn't ideal</Text>
+            <Text style={styles.warnTitle}>Lighting wasn’t ideal</Text>
             <Text style={styles.warnText}>
               The photo quality scored {faceQuality}/100 — your match may be off. Retake facing a
               window, no flash, for a sharper result.
@@ -310,7 +315,7 @@ export default function ResultsScreen() {
             {tryOnBroken && !tryingOn ? (
               <View style={styles.loadingOverlay}>
                 <Text style={styles.warnText}>
-                  The try-on preview couldn't load — your match below is still exact.
+                  The try-on preview couldn’t load — your match below is still exact.
                 </Text>
               </View>
             ) : null}
@@ -320,7 +325,7 @@ export default function ResultsScreen() {
                 pointerEvents="none"
               >
                 <Text style={styles.warnText}>
-                  Your original photo couldn't be displayed here — the other side is your real
+                  Your original photo couldn’t be displayed here — the other side is your real
                   try-on render.
                 </Text>
               </View>
@@ -362,8 +367,8 @@ export default function ResultsScreen() {
               <View style={styles.warnCard}>
                 <Text style={styles.warnTitle}>No perfect match in our catalog</Text>
                 <Text style={styles.warnText}>
-                  Our {SHADES.length} shades didn't nail it this time — these are the closest we
-                  found. We're adding brands every week; check back soon.
+                  Our {SHADES.length} shades didn’t nail it this time — these are the closest we
+                  found. We’re adding brands every week; check back soon.
                 </Text>
               </View>
             ) : null}
@@ -454,7 +459,7 @@ export default function ResultsScreen() {
                       activeOpacity={0.85}
                       onPress={() => giveFeedback(true)}
                     >
-                      <Text style={styles.feedbackYesText}>Yes, that's me</Text>
+                      <Text style={styles.feedbackYesText}>Yes, that’s me</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.feedbackBtn, styles.feedbackNo]}
@@ -523,7 +528,7 @@ export default function ResultsScreen() {
                 <ScoreBar
                   label="Oil balance"
                   value={100 - scores.oiliness}
-                  hint="How balanced your skin's oil is."
+                  hint="How balanced your skin’s oil is."
                 />
                 <ScoreBar label="Pore clarity" value={scores.pore} />
                 <ScoreBar
@@ -599,7 +604,7 @@ export default function ResultsScreen() {
                 we open, find your shade below.
               </Text>
               <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/store')}>
-                <Text style={styles.storeLink}>Peek at what's coming →</Text>
+                <Text style={styles.storeLink}>Peek at what’s coming →</Text>
               </TouchableOpacity>
 
               <Text style={styles.divider}>Find your shade now</Text>

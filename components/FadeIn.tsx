@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Animated, ViewStyle } from 'react-native';
 
 // Gentle entrance: fade + rise, native-driven so it never janks the JS
@@ -13,7 +13,7 @@ export default function FadeIn({
   delay?: number;
   style?: ViewStyle;
 }) {
-  const anim = useRef(new Animated.Value(0)).current;
+  const [anim] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     const t = Animated.timing(anim, {

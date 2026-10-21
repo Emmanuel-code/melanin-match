@@ -88,16 +88,17 @@ export default function StoreScreen() {
           </Text>
         </FadeIn>
 
-        {/* Founder — the woman Peach Match was built for */}
+        {/* The inspiration — the woman Peach Match was built for */}
         <FadeIn delay={30}>
           <View style={styles.founderCard}>
             <Image source={{ uri: FOUNDER_IMG }} style={styles.founderPhoto} />
             <View style={styles.founderText}>
-              <Text style={styles.founderKicker}>MEET THE FOUNDER</Text>
+              <Text style={styles.founderKicker}>THE INSPIRATION</Text>
               <Text style={styles.founderName}>Anastasia</Text>
               <Text style={styles.founderLine}>
-                Peach Cosmetics is Anastasia’s store. Peach Match exists because her customers
-                deserved a match that actually matches — no more guessing, no more grey.
+                Peach Match is inspired by Anastasia — her love of makeup, and her frustration
+                with foundation shades that never quite matched. Peach Cosmetics, the store
+                she is building, is coming soon.
               </Text>
             </View>
           </View>

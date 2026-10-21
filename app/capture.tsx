@@ -62,9 +62,10 @@ export default function CaptureScreen() {
     triggerHaptic.light();
     setSampleBusy(true);
     try {
-      // The sample is Anastasia herself — founder of Peach Cosmetics, the
-      // woman Peach Match was built for. Face-tight crop, so the demo run
-      // clears the skin-analysis face-size rule and shows the full report.
+      // The sample is Anastasia herself — the inspiration behind Peach
+      // Match and the Peach Cosmetics store she is building. Face-tight
+      // crop, so the demo run clears the skin-analysis face-size rule
+      // and shows the full report.
       setPhotoUri(SAMPLE_IMG);
       setLastPhotoUri(SAMPLE_IMG);
       triggerHaptic.success();
@@ -196,7 +197,7 @@ export default function CaptureScreen() {
               disabled={sampleBusy}
             >
               <Text style={styles.sampleText}>
-                {sampleBusy ? 'Preparing Anastasia’s portrait…' : 'No photo handy? See it on Anastasia — our founder'}
+                {sampleBusy ? 'Preparing Anastasia’s portrait…' : 'No photo handy? See it on Anastasia — she inspired Peach Match'}
               </Text>
             </TouchableOpacity>
           </>

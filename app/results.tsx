@@ -76,7 +76,9 @@ export default function ResultsScreen() {
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
+      // Claim moves only when they're mostly horizontal — vertical swipes
+      // belong to the page scroll, not the comparison slider.
+      onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > Math.abs(g.dy),
       onPanResponderGrant: (e) => {
         userTouchedSlider.current = true;
         const w = photoWRef.current;
@@ -272,10 +274,10 @@ export default function ResultsScreen() {
             <Text style={styles.sliderHandleText}>↔</Text>
           </View>
           <View style={styles.sliderTagL} pointerEvents="none">
-            <Text style={styles.sliderTagText}>After</Text>
+            <Text style={styles.sliderTagText}>Matched Shade</Text>
           </View>
           <View style={styles.sliderTagR} pointerEvents="none">
-            <Text style={styles.sliderTagText}>Before</Text>
+            <Text style={styles.sliderTagText}>Bare Skin</Text>
           </View>
           {tryingOn ? (
             <View style={styles.loadingOverlay}>

@@ -5,7 +5,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import StepRow, { StepStatus } from '../components/StepRow';
 import { colors, radius } from '../lib/theme';
 import { setLastResult } from '../lib/session';
-import { isMockMode, PipelineStep, runPipeline } from '../lib/youcam';
+import {
+  isMockMode,
+  PipelineResult,
+  PipelineStep,
+  runPipeline,
+  setMockOverride,
+} from '../lib/youcam';
 
 const STEPS: { key: PipelineStep; label: string }[] = [
   { key: 'upload', label: 'Uploading photo' },
@@ -15,12 +21,27 @@ const STEPS: { key: PipelineStep; label: string }[] = [
   { key: 'tryOn', label: 'Trying it on' },
 ];
 
+// Rotating lab notes while the calls run — the wait should teach, not stall.
+const LAB_NOTES = [
+  'Reading your undertone — warm, neutral, or cool…',
+  'Filtering out white-cast and flash reflection…',
+  'Checking 78 shade formulas across 9 brands…',
+  'Depth is measured in CIELAB — the colour space the labs use…',
+  'A true match disappears at your jawline…',
+];
+
 export default function AnalyzingScreen() {
   const { uri } = useLocalSearchParams<{ uri?: string }>();
   const [activeIndex, setActiveIndex] = useState(0);
   const [finished, setFinished] = useState(false);
+  const [noteIdx, setNoteIdx] = useState(0);
   const started = useRef(false);
   const mock = isMockMode();
+
+  useEffect(() => {
+    const t = setInterval(() => setNoteIdx((i) => (i + 1) % LAB_NOTES.length), 3200);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     if (started.current) return;
@@ -30,32 +51,60 @@ export default function AnalyzingScreen() {
       router.replace('/capture');
       return;
     }
-    (async () => {
+
+    const goToResults = (result: PipelineResult) => {
+      setFinished(true);
+      setLastResult(result);
+      router.replace({
+        pathname: '/results',
+        params: {
+          originalUri: uri,
+          fileId: result.fileId,
+          skinHex: result.skinColorHex,
+          faceQuality: String(result.faceQuality),
+          fitzpatrick: result.fitzpatrick,
+          ...(result.scores ? { scores: JSON.stringify(result.scores) } : {}),
+          matches: JSON.stringify(result.matches),
+          tryOnUrl: result.tryOnUrl,
+        },
+      });
+    };
+
+    const onStep = (step: PipelineStep) => {
+      const idx = STEPS.findIndex((s) => s.key === step);
+      if (idx >= 0) setActiveIndex(idx);
+    };
+
+    // Demo-day escape hatch: if the live run fails (venue Wi-Fi, a rejected
+    // photo), one tap re-runs in demo mode so the story never dead-ends.
+    const runDemoFallback = async () => {
+      setMockOverride(true);
       try {
-        const result = await runPipeline(uri, (step) => {
-          const idx = STEPS.findIndex((s) => s.key === step);
-          if (idx >= 0) setActiveIndex(idx);
-        });
-        setFinished(true);
-        setLastResult(result);
-        router.replace({
-          pathname: '/results',
-          params: {
-            originalUri: uri,
-            fileId: result.fileId,
-            skinHex: result.skinColorHex,
-            faceQuality: String(result.faceQuality),
-            fitzpatrick: result.fitzpatrick,
-            ...(result.scores ? { scores: JSON.stringify(result.scores) } : {}),
-            matches: JSON.stringify(result.matches),
-            tryOnUrl: result.tryOnUrl,
-          },
-        });
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Analysis failed';
-        Alert.alert('Hmm, that didn’t work', `${msg}\n\nPlease try again with a clearer photo.`, [
+        const result = await runPipeline(uri, onStep);
+        goToResults(result);
+      } catch {
+        Alert.alert('Demo unavailable', 'Please take the photo again.', [
           { text: 'Back', onPress: () => router.replace('/capture') },
         ]);
+      } finally {
+        setMockOverride(false);
+      }
+    };
+
+    (async () => {
+      try {
+        const result = await runPipeline(uri, onStep);
+        goToResults(result);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Analysis failed';
+        Alert.alert(
+          'Hmm, that didn’t work',
+          `${msg}\n\nTry again with a clearer photo — or see a demo result right now.`,
+          [
+            { text: 'Back', style: 'cancel', onPress: () => router.replace('/capture') },
+            { text: 'Demo result instead', onPress: () => void runDemoFallback() },
+          ],
+        );
       }
     })();
   }, [uri]);
@@ -80,7 +129,7 @@ export default function AnalyzingScreen() {
         <Text style={styles.note}>
           {mock
             ? 'Running on demo data. Add your YouCam API key to analyze real photos.'
-            : 'YouCam AI is reading your skin tone and trying on your match.'}
+            : LAB_NOTES[noteIdx]}
         </Text>
       </View>
     </SafeAreaView>

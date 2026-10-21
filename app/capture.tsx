@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import {
@@ -12,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CoachTip from '../components/CoachTip';
+import { ONBOARDING_PROOF_IMG } from '../lib/images';
 import { colors, radius } from '../lib/theme';
 
 const CHECKLIST = [
@@ -30,6 +32,29 @@ const PICKER_OPTIONS: ImagePicker.ImagePickerOptions = {
 
 export default function CaptureScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [sampleBusy, setSampleBusy] = useState(false);
+
+  // Demo-day safety net: a bundled portrait, written to a real file so the
+  // whole pipeline (including the upload) treats it exactly like a selfie.
+  const useSample = async () => {
+    if (sampleBusy) return;
+    setSampleBusy(true);
+    try {
+      const base64 = ONBOARDING_PROOF_IMG.split(',')[1];
+      const dest = `${FileSystem.cacheDirectory}peach-sample-selfie.jpg`;
+      await FileSystem.writeAsStringAsync(dest, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      setPhotoUri(dest);
+    } catch {
+      Alert.alert(
+        'Sample unavailable',
+        'The sample photo could not be prepared — please take a photo instead.',
+      );
+    } finally {
+      setSampleBusy(false);
+    }
+  };
 
   const takePhoto = async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -94,22 +119,34 @@ export default function CaptureScreen() {
             </View>
           </View>
         ) : (
-          <View style={styles.row}>
+          <>
+            <View style={styles.row}>
+              <TouchableOpacity
+                style={[styles.btn, styles.btnPrimary]}
+                activeOpacity={0.85}
+                onPress={takePhoto}
+              >
+                <Text style={styles.btnPrimaryText}>Take a photo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.btn, styles.btnGhost]}
+                activeOpacity={0.85}
+                onPress={pickFromLibrary}
+              >
+                <Text style={styles.btnGhostText}>From gallery</Text>
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity
-              style={[styles.btn, styles.btnPrimary]}
-              activeOpacity={0.85}
-              onPress={takePhoto}
+              style={styles.sampleBtn}
+              activeOpacity={0.8}
+              onPress={useSample}
+              disabled={sampleBusy}
             >
-              <Text style={styles.btnPrimaryText}>Take a photo</Text>
+              <Text style={styles.sampleText}>
+                {sampleBusy ? 'Preparing sample…' : 'No photo handy? Try a sample photo'}
+              </Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.btn, styles.btnGhost]}
-              activeOpacity={0.85}
-              onPress={pickFromLibrary}
-            >
-              <Text style={styles.btnGhostText}>From gallery</Text>
-            </TouchableOpacity>
-          </View>
+          </>
         )}
       </ScrollView>
       <CoachTip
@@ -157,4 +194,11 @@ const styles = StyleSheet.create({
   btnPrimaryText: { color: '#1a120b', fontSize: 16, fontWeight: '800' },
   btnGhost: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.goldDim },
   btnGhostText: { color: colors.goldSoft, fontSize: 16, fontWeight: '700' },
+  sampleBtn: { alignItems: 'center', marginTop: 18, paddingVertical: 8 },
+  sampleText: {
+    color: colors.goldSoft,
+    fontSize: 14,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
 });

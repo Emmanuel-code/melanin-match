@@ -49,14 +49,6 @@ export default function HomeScreen() {
           >
             <Text style={styles.ctaText}>Find my shade</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.ctaGhost}
-            activeOpacity={0.85}
-            onPress={() => router.push('/store')}
-          >
-            <Text style={styles.ctaGhostText}>Peach Cosmetics — coming soon</Text>
-          </TouchableOpacity>
         </FadeIn>
 
         {passport ? (
@@ -107,6 +99,14 @@ export default function HomeScreen() {
           onPress={() => router.push({ pathname: '/onboarding', params: { replay: '1' } })}
         >
           <Text style={styles.linkText}>How Peach Match works →</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.linkBtn}
+          activeOpacity={0.8}
+          onPress={() => router.push('/store')}
+        >
+          <Text style={styles.linkText}>Peach Cosmetics store — coming soon →</Text>
         </TouchableOpacity>
 
         <Text style={styles.fine}>Powered by YouCam Skin AI</Text>

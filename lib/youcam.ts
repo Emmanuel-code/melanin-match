@@ -11,8 +11,17 @@ import { findNearestShades, hexToLab, MatchedShade } from './match';
 const BASE_URL = 'https://yce-api-01.makeupar.com';
 const API_KEY = process.env.EXPO_PUBLIC_YOUCAM_API_KEY;
 
+// Demo-day escape hatch: the analyzing screen can force one pipeline run
+// into mock mode after a live failure, so a bad venue network or a rejected
+// photo never dead-ends a presentation.
+let mockOverride = false;
+
+export function setMockOverride(v: boolean): void {
+  mockOverride = v;
+}
+
 export function isMockMode(): boolean {
-  return !API_KEY;
+  return mockOverride || !API_KEY;
 }
 
 function authHeaders(): Record<string, string> {

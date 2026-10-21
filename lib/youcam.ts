@@ -229,32 +229,75 @@ export interface SkinScores {
   oiliness: number;
   moisture: number;
   radiance: number;
+  pore: number;
+  wrinkle: number;
+  firmness: number;
+  overall: number;
+  skinAge: number;
 }
 
-const SKIN_ACTIONS = ['acne', 'oiliness', 'moisture', 'radiance'] as const;
+// Verified live 2026-10-21: these 7 SD actions are accepted together.
+// (dark_circle / eyebag / skin_texture / skin_age / spots as ACTIONS are
+// rejected — skin_age still arrives in the output as a bonus entry.)
+// NOTE: never mix HD and SD dst_actions — these are all SD.
+const SKIN_ACTIONS = [
+  'acne',
+  'oiliness',
+  'moisture',
+  'radiance',
+  'pore',
+  'wrinkle',
+  'firmness',
+] as const;
 
 export async function analyzeSkin(src: string): Promise<SkinScores> {
   if (isMockMode()) {
     await sleep(1000);
-    return { acne: 82, oiliness: 45, moisture: 68, radiance: 74 };
+    return {
+      acne: 82,
+      oiliness: 45,
+      moisture: 68,
+      radiance: 74,
+      pore: 71,
+      wrinkle: 79,
+      firmness: 84,
+      overall: 76,
+      skinAge: 31,
+    };
   }
-  // NOTE: never mix HD and SD dst_actions — these are all SD.
   const taskId = await createTask('skin-analysis', {
     ...srcField(src),
     dst_actions: [...SKIN_ACTIONS],
     format: 'json',
   });
   const results = await pollTask('skin-analysis', taskId);
-  const output: Array<{ type?: string; ui_score?: number }> = results?.output ?? [];
+  // Output shape (verified live): per-action entries {type, ui_score}, plus
+  // {type:'all', score} overall and {type:'skin_age', score} bonus entries.
+  const output: Array<{ type?: string; ui_score?: number; score?: number }> =
+    results?.output ?? [];
   const byType: Record<string, number> = {};
+  let overall = 0;
+  let skinAge = 0;
   for (const item of output) {
-    if (item.type && typeof item.ui_score === 'number') byType[item.type] = item.ui_score;
+    if (!item.type) continue;
+    if (item.type === 'all' && typeof item.score === 'number') {
+      overall = Math.round(item.score);
+    } else if (item.type === 'skin_age' && typeof item.score === 'number') {
+      skinAge = Math.round(item.score);
+    } else if (typeof item.ui_score === 'number') {
+      byType[item.type] = item.ui_score;
+    }
   }
   const scores: SkinScores = {
     acne: byType.acne ?? 0,
     oiliness: byType.oiliness ?? 0,
     moisture: byType.moisture ?? 0,
     radiance: byType.radiance ?? 0,
+    pore: byType.pore ?? 0,
+    wrinkle: byType.wrinkle ?? 0,
+    firmness: byType.firmness ?? 0,
+    overall,
+    skinAge,
   };
   return scores;
 }
@@ -277,9 +320,10 @@ export async function tryOnFoundation(
     ...srcField(src),
     version: '1.0',
     effects: [
-      // skin_smooth with zero strength keeps the render honest — we want the
-      // SHADE to show, not a beautified blur.
-      { category: 'skin_smooth', skinSmoothStrength: 0, skinSmoothColorIntensity: 0 },
+      // Moderate smoothing: foundation in real life evens and blurs, and the
+      // playground-grade renders use it. 40 reads as applied product, not a
+      // beauty filter.
+      { category: 'skin_smooth', skinSmoothStrength: 40, skinSmoothColorIntensity: 25 },
       {
         category: 'foundation',
         palettes: [

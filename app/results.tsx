@@ -63,7 +63,17 @@ export default function ResultsScreen() {
   const scores = useMemo(
     () =>
       params.scores
-        ? parse<SkinScores>(params.scores, { acne: 0, oiliness: 0, moisture: 0, radiance: 0 })
+        ? parse<SkinScores>(params.scores, {
+            acne: 0,
+            oiliness: 0,
+            moisture: 0,
+            radiance: 0,
+            pore: 0,
+            wrinkle: 0,
+            firmness: 0,
+            overall: 0,
+            skinAge: 0,
+          })
         : null,
     [params.scores],
   );
@@ -414,6 +424,19 @@ export default function ResultsScreen() {
           <>
             <Text style={styles.sectionTitle}>Your skin, by the numbers</Text>
             <View style={styles.card}>
+          {scores.overall ? (
+            <View style={styles.scoreHead}>
+              <View>
+                <Text style={styles.scoreBig}>{scores.overall}</Text>
+                <Text style={styles.scoreCap}>Overall skin score / 100</Text>
+              </View>
+              {scores.skinAge ? (
+                <View style={styles.ageChip}>
+                  <Text style={styles.ageChipText}>Skin age {scores.skinAge}</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
           <ScoreBar label="Radiance" value={scores.radiance} />
           <ScoreBar label="Moisture" value={scores.moisture} />
           <ScoreBar
@@ -426,6 +449,13 @@ export default function ResultsScreen() {
             value={100 - scores.oiliness}
             hint="How balanced your skin's oil is."
           />
+          <ScoreBar label="Pore clarity" value={scores.pore} />
+          <ScoreBar
+            label="Smoothness"
+            value={scores.wrinkle}
+            hint="Higher means fewer visible lines."
+          />
+          <ScoreBar label="Firmness" value={scores.firmness} />
           <Text style={styles.fine}>Estimates from AI analysis, not medical advice.</Text>
           <Text style={styles.fine}>
             Skin tone can shift up to 4 shades across the year — re-scan each season to keep your
@@ -637,6 +667,21 @@ const styles = StyleSheet.create({
   },
   mockNote: { color: colors.muted, fontSize: 12, marginTop: 8, fontStyle: 'italic' },
   card: { backgroundColor: colors.surface, borderRadius: radius.md, padding: 16 },
+  scoreHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  scoreBig: { color: colors.gold, fontSize: 40, fontWeight: '800', lineHeight: 42 },
+  scoreCap: { color: colors.muted, fontSize: 12, marginTop: 2 },
+  ageChip: {
+    backgroundColor: colors.surfaceLight,
+    borderRadius: radius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  ageChipText: { color: colors.goldSoft, fontSize: 13, fontWeight: '700' },
   cardSpaced: { marginTop: 16 },
   cardTitle: { color: colors.cream, fontSize: 16, fontWeight: '800', marginBottom: 12 },
   whyRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },

@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
   sliderTagL: { position: 'absolute', top: 12, left: 12, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   sliderTagR: { position: 'absolute', top: 12, right: 12, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   tagText: { color: '#fff', fontSize: 10, fontFamily: fonts.bodyBold },
-  loadingOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },
+  loadingOverlay: { ...StyleSheet.absoluteFill, justifyContent: 'center', alignItems: 'center' },
   loadingText: { color: colors.gold, fontSize: 12, fontFamily: fonts.bodySemi, marginTop: 6 },
 
   // Pivot
@@ -577,6 +577,10 @@ const styles = StyleSheet.create({
   pivotKicker: { color: colors.gold, fontSize: 10, fontFamily: fonts.bodyBold, letterSpacing: 1 },
   pivotTitle: { color: colors.cream, fontSize: 17, fontFamily: fonts.displayBold, marginBottom: 4 },
   pivotDesc: { color: colors.muted, fontSize: 12, fontFamily: fonts.body, marginBottom: 12 },
+  pivotProductRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  pivotText: { flex: 1, marginLeft: 14 },
+  pivotBrand: { color: colors.cream, fontSize: 15, fontFamily: fonts.bodyBold, marginBottom: 2 },
+  pivotScore: { color: colors.goldSoft, fontSize: 12, fontFamily: fonts.bodySemi },
   noPhotoBanner: {
     backgroundColor: 'rgba(212, 162, 78, 0.1)',
     borderRadius: radius.md,

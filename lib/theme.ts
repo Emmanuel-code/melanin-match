@@ -20,6 +20,7 @@ export const colors = {
 export const fonts = {
   // Editorial display serif
   display: 'PlayfairDisplay_700Bold',
+  displayBold: 'PlayfairDisplay_700Bold',
   displaySemi: 'PlayfairDisplay_600SemiBold',
   displayExtra: 'PlayfairDisplay_800ExtraBold',
 
